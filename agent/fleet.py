@@ -30,6 +30,11 @@ def register_ecosystems(specs: list) -> None:
         ECOSYSTEMS[eco.name] = eco
 
 
+def repo_only(s: dict) -> bool:
+    """A source with `audit: repo` has no deployment: see agent/repo_audit.py."""
+    return str(s.get("audit", "")).strip().lower() in ("repo", "repository")
+
+
 def make_source(s: dict, defaults: dict) -> Source:
     """A source from fleet.yaml, on the company's forge unless it says otherwise."""
     cfg = {**(defaults or {}), **{k: v for k, v in s.items() if k != "forge"}}
@@ -58,7 +63,12 @@ class Fleet:
         self.builder = Builder(reg.get("push"), reg.get("pull"))
         register_ecosystems(spec.get("ecosystems"))
         forge_defaults = settings.section("forge", {})
-        self.sources: dict[str, Source] = {s["name"]: make_source(s, forge_defaults) for s in spec.get("sources", [])}
+        self.sources: dict[str, Source] = {s["name"]: make_source(s, forge_defaults)
+                                           for s in spec.get("sources", []) if not repo_only(s)}
+        # `audit: repo` sources (libraries, tools): audited from the repository, never deployed
+        # or linked to a workload; a local clone whatever the company forge, so nothing is pushed
+        self.repos: dict[str, Source] = {s["name"]: make_source({"clone": True, **s, "deploy": False}, {})
+                                         for s in spec.get("sources", []) if repo_only(s)}
         self.targets: dict[str, Target] = {}
         self.target_errors: dict[str, str] = {}
         self.target_specs = {t["name"]: t for t in spec.get("targets", [])}
