@@ -143,8 +143,9 @@ a.kpi:hover { border-color: var(--ink); text-decoration: none; color: var(--ink)
 .band-label .bad { color: #F59A8B; }
 .seg { position: absolute; }
 .head { position: absolute; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
-.node { position: absolute; width: 168px; height: 76px; padding: 10px 14px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; text-align: left; border-radius: 10px; border: 1.5px solid #4A4840; background: #1C1C18; color: var(--paper); transition: background-color .3s, border-color .3s; }
+.node { position: absolute; width: 168px; height: 76px; padding: 6px 14px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; text-align: left; border-radius: 10px; border: 1.5px solid #4A4840; background: #1C1C18; color: var(--paper); transition: background-color .3s, border-color .3s; }
 .node:hover { border-color: var(--paper); }
+.node > * { flex-shrink: 0; }
 .node .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13px/18px var(--mono); }
 .node .mt { font-size: 12px; line-height: 16px; color: var(--side-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .node.sel { box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--paper); }
@@ -166,8 +167,8 @@ a.kpi:hover { border-color: var(--ink); text-decoration: none; color: var(--ink)
 .s-resolved { background: #13251A; border-color: #6FCF8E; color: #E6F6EC; } .s-resolved .mt { color: #9FD3B0; } .s-resolved .pill { background: #6FCF8E; border-color: #6FCF8E; color: var(--ink); }
 .s-proposed { border-style: dashed; border-color: #6FCF8E; } .s-proposed .pill { background: transparent; border-color: #6FCF8E; color: #9FD3B0; }
 .s-ignored .pill { background: transparent; border-color: #4A4840; color: var(--side-muted); }
-.gw .pill.rule { background: #8FB3E8; border-color: #8FB3E8; color: var(--ink); }
 .gw .pill { background: transparent; border-color: #4A4840; color: var(--side-muted); }
+.gw .pill.rule-on, .pill.rule-on { background: #8FB3E8; border-color: #8FB3E8; color: var(--ink); }
 .map-detail { flex: 1 1 284px; min-width: 0; background: #1C1C18; border: 1px solid var(--side-line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .map-detail .where { font-size: 12px; color: var(--side-muted); }
 .map-detail .nm { font: 500 18px/24px var(--mono); overflow-wrap: anywhere; }

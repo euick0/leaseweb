@@ -420,7 +420,7 @@ function mapDetail(states, L) {
     const g = L.gws.find((x) => "gw:" + x.env.name === sel);
     if (!g) return "";
     return `<span class="where">${esc(g.env.label)} · ${esc(g.env.provider || g.env.kind)}</span><span class="nm">gateway</span>
-      <span><span class="pill ${g.shield ? "rule" : ""}">${g.shield ? "Rule active" : "No rule needed"}</span></span>
+      <span><span class="pill ${g.shield ? "rule-on" : ""}">${g.shield ? "Rule active" : "No rule needed"}</span></span>
       <p>${g.shield ? "A virtual patch is active here: a rule that blocks the attack in front of the service." : "Routes public traffic to the internet-facing services in this environment. If a fix is blocked, Lighthouse can add a rule here that stops the attack. That always needs approval."}</p>
       ${g.names.length ? `<dl><dt>Gateways</dt><dd class="mono">${g.names.map(esc).join(", ")}</dd></dl>` : ""}`;
   }
@@ -466,7 +466,7 @@ function renderMap(states) {
     ${L.heads.map((s) => `<div class="head" aria-hidden="true" style="${s}"></div>`).join("")}
     ${L.gws.length ? `<button class="node inet${view.sel === "inet" ? " sel" : ""}" data-node="inet" style="left:24px;top:${L.inetY}px" aria-label="The internet"><span class="nm" style="font-family:var(--sans);font-weight:600">Internet</span><span class="mt">anyone outside</span></button>` : ""}
     ${L.gws.map((g) => `<button class="node gw${view.sel === "gw:" + g.env.name ? " sel" : ""}" data-node="gw:${esc(g.env.name)}" style="left:200px;top:${g.cy - 38}px" aria-label="Gateway for ${esc(g.env.label)}">
-      <span class="nm">gateway</span><span class="mt">routes public traffic</span><span class="pill ${g.shield ? "rule" : ""}">${g.shield ? "Rule active" : "No rule needed"}</span></button>`).join("")}
+      <span class="nm">gateway</span><span class="mt">routes public traffic</span><span class="pill ${g.shield ? "rule-on" : ""}">${g.shield ? "Rule active" : "No rule needed"}</span></button>`).join("")}
     ${L.nodes.map(node).join("")}
     ${L.more.map((m) => `<a class="more" href="#/fleet" style="left:${m.x}px;top:${m.y}px">${esc(m.text)}</a>`).join("")}
   </div>`;
