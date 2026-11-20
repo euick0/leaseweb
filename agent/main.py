@@ -27,11 +27,13 @@ _run_lock = threading.Lock()
 def _watch_feed(stop: threading.Event) -> None:
     while not stop.is_set():
         try:
-            # several new advisories at once: the most critical runs first
-            for adv in feed.by_severity(feed.list_feed()):
-                if not db.advisory_seen(adv["id"]):
-                    with _run_lock:
-                        pipeline.run_advisory(adv)
+            # one advisory per pass, the most critical unseen one, then read the
+            # feed again: a critical advisory that arrives mid-run goes next
+            unseen = [adv for adv in feed.list_feed() if not db.advisory_seen(adv["id"])]
+            if unseen:
+                with _run_lock:
+                    pipeline.run_advisory(feed.by_severity(unseen)[0])
+                continue
         except Exception as exc:                      # keep watching whatever happens
             print(f"[feed] {type(exc).__name__}: {exc}", flush=True)
         stop.wait(config.FEED_POLL_SECONDS)
@@ -83,10 +85,12 @@ def probe_all():
 
 @app.get("/api/runs")
 def runs():
+    severity = {a["id"]: feed.advisory_severity(a) for a in _scenarios() + feed.list_feed()}
     out = []
     for r in db.list_runs():
         its = db.items(r["id"])
-        out.append({**r, "items": [{k: i[k] for k in ("id", "workload_id", "status", "rank")} for i in its]})
+        out.append({**r, "severity": severity.get(r["advisory_id"]),
+                    "items": [{k: i[k] for k in ("id", "workload_id", "status", "rank")} for i in its]})
     return out
 
 

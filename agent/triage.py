@@ -6,7 +6,8 @@ the target driver read from the platform. `patch_available`, `fixed_version`
 and `internet_exposed` are facts and never come from the model.
 
 If the model is down and nothing is cached, a conservative fallback assumes
-the worst (affected and reachable) so nothing is silently ignored.
+the worst (affected and reachable, at the advisory's own severity, or high if
+it gives none) so nothing is silently ignored.
 """
 from __future__ import annotations
 
@@ -49,7 +50,7 @@ def _prompt(adv: dict, wl: Workload, m: Match, grep_hits: list[str], gateway: Op
 def fallback(adv: dict, m: Match) -> TriageResult:
     hint = feed.hints(adv).get("mitigation") or {}
     return TriageResult(
-        affected=True, reachable=True, severity_for_this_workload="high",
+        affected=True, reachable=True, severity_for_this_workload=feed.advisory_severity(adv) or "high",
         recommended_action="patch" if m.patch_available else ("mitigate" if hint else "investigate"),
         mitigation_pattern=hint.get("pattern"), mitigation_fields=hint.get("fields", []),
         explanation="Model unavailable and no cached answer: assuming the workload is affected and "

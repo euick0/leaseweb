@@ -17,7 +17,6 @@ from .builder import BuildError
 from .drivers.base import DriverError
 from .schemas import Component, Match, TriageResult, VetResult, Workload
 
-SEVERITY = {"critical": 0, "high": 1, "medium": 2, "low": 3, "none": 4}
 _action_lock = threading.Lock()        # one rollout at a time: builds, canaries and probes share resources
 
 
@@ -109,10 +108,10 @@ def _bump_set(fl: fleet.Fleet, adv: dict, wl: Workload, comp: Component, version
 
 
 def priority(wl: Workload, t: TriageResult) -> tuple:
-    """Sort key: most critical first; within a severity, exposed and reachable,
-    then reachable, then the rest."""
-    return (SEVERITY[t.severity_for_this_workload],
-            not (wl.internet_exposed and t.reachable), not t.reachable, wl.id)
+    """Sort key: reachable workloads first, most critical first among them, and
+    within a severity the internet-exposed ones first. Unreachable workloads
+    come after every reachable one, whatever the model rated them."""
+    return (not t.reachable, feed.SEVERITY[t.severity_for_this_workload], not wl.internet_exposed, wl.id)
 
 
 def _mitigation_ok(wl: Workload, t: TriageResult) -> bool:

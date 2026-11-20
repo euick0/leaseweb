@@ -11,7 +11,7 @@ from agent import config, matcher, mitigation, policy, vetter
 from agent.drivers import kubernetes as k8s
 from agent.drivers.maven import MavenEcosystem
 from agent.drivers.pypi import PypiEcosystem
-from agent.schemas import Component, TriageResult, VetResult, Workload
+from agent.schemas import Component, Match, TriageResult, VetResult, Workload
 from agent.versions import compare
 from conftest import scenario
 
@@ -192,17 +192,44 @@ def test_most_critical_is_fixed_first():
 
     rows = [row("low-exposed", True, "low"), row("critical-internal", False, "critical"),
             row("high-exposed", True, "high"), row("high-internal", False, "high"),
-            row("high-unreachable", True, "high", reachable=False), row("medium", True, "medium")]
+            row("critical-unreachable", True, "critical", reachable=False), row("medium", True, "medium"),
+            row("high-unreachable", True, "high", reachable=False)]
     rows.sort(key=lambda r: pipeline.priority(*r))
-    assert [wl.name for wl, _ in rows] == ["critical-internal", "high-exposed", "high-internal",
-                                           "high-unreachable", "medium", "low-exposed"]
+    # reachable before unreachable whatever the model's severity; exposed first within a severity
+    assert [wl.name for wl, _ in rows] == ["critical-internal", "high-exposed", "high-internal", "medium",
+                                           "low-exposed", "critical-unreachable", "high-unreachable"]
 
 
 def test_most_critical_advisory_runs_first():
     from agent import feed
     advs = [{"id": i, "database_specific": {"severity": s}} if s else {"id": i}
             for i, s in [("a", "LOW"), ("b", None), ("c", "CRITICAL"), ("d", "moderate"), ("e", "HIGH")]]
-    assert [a["id"] for a in feed.by_severity(advs)] == ["c", "e", "d", "a", "b"]
+    advs += [{"id": "f", "database_specific": None},
+             {"id": "g", "severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}]}]
+    assert [a["id"] for a in feed.by_severity(advs)] == ["c", "g", "e", "d", "a", "b", "f"]
+    assert feed.hints({"id": "f", "database_specific": None}) == {}
+
+
+def test_cvss3_scores():
+    from agent import feed
+    assert feed.cvss3_score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H") == 9.8
+    assert feed.cvss3_score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H") == 10.0     # log4shell
+    assert feed.cvss3_score("CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N") == 6.1      # reflected XSS
+    assert feed.cvss3_score("CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N") == 5.5
+    assert feed.cvss3_score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N") == 0.0
+    assert feed.cvss3_score("AV:N/AC:L/Au:N/C:P/I:P/A:P") is None                        # CVSS 2
+    adv = {"id": "x", "severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N"},
+                                   {"type": "Ubuntu", "score": "high"}]}
+    assert feed.advisory_severity(adv) == "high"                                      # worst entry wins
+
+
+def test_fallback_uses_advisory_severity():
+    from agent import triage
+    m = Match(advisory_id="a", workload_id="t/ns/w", component=Component(ecosystem="maven", name="n", version="1"),
+              fixed_version="2", patch_available=True)
+    assert triage.fallback({"id": "a", "database_specific": {"severity": "CRITICAL"}}, m) \
+        .severity_for_this_workload == "critical"
+    assert triage.fallback({"id": "a"}, m).severity_for_this_workload == "high"
 
 
 # ------------------------------------------------------- kubernetes discovery
