@@ -17,7 +17,6 @@ from .builder import BuildError
 from .drivers.base import DriverError
 from .schemas import Component, Match, TriageResult, VetResult, Workload
 
-SEVERITY = {"critical": 0, "high": 1, "medium": 2, "low": 3, "none": 4}
 _action_lock = threading.Lock()        # one rollout at a time: builds, canaries and probes share resources
 
 
@@ -108,6 +107,13 @@ def _bump_set(fl: fleet.Fleet, adv: dict, wl: Workload, comp: Component, version
     return out
 
 
+def priority(wl: Workload, t: TriageResult) -> tuple:
+    """Sort key: reachable workloads first, most critical first among them, and
+    within a severity the internet-exposed ones first. Unreachable workloads
+    come after every reachable one, whatever the model rated them."""
+    return (not t.reachable, feed.SEVERITY[t.severity_for_this_workload], not wl.internet_exposed, wl.id)
+
+
 def _mitigation_ok(wl: Workload, t: TriageResult) -> bool:
     if not (wl.gateway and t.mitigation_pattern and t.mitigation_fields):
         return False
@@ -182,12 +188,12 @@ def _run(adv: dict, run_id: int, log: Log) -> None:
              t.explanation, {"source": source, "grep_hits": hits, **t.model_dump()})
         rows.append((item_id, wl, m, t))
 
-    # 5. rank: exposed and reachable first, then reachable, then the rest
-    rows.sort(key=lambda r: (not (r[1].internet_exposed and r[3].reachable), not r[3].reachable,
-                             SEVERITY[r[3].severity_for_this_workload], r[1].id))
+    # 5. rank
+    rows.sort(key=lambda r: priority(r[1], r[3]))
     for rank, (item_id, wl, _, t) in enumerate(rows, 1):
         db.update_item(item_id, rank=rank)
-    log("rank", "info", "Priority: " + " > ".join(r[1].name + f"@{r[1].target}" for r in rows))
+    log("rank", "info", "Priority (most critical first): " + " > ".join(
+        f"{r[1].name}@{r[1].target} ({r[3].severity_for_this_workload})" for r in rows))
 
     # 6. vet, once per package version, for every workload that may need the fix
     vets: dict[int, Optional[VetResult]] = {}

@@ -117,6 +117,7 @@ const STATUS = {
   ignored: ["c-grey", "ignored"], rolled_back: ["c-amber", "rolled back"], escalated: ["c-amber", "needs a human"],
 };
 const VERDICT = { clean: "c-green", suspicious: "c-amber", malicious: "c-red" };
+const SEVERITY = { critical: "c-red", high: "c-amber", medium: "c-blue", low: "c-grey", none: "c-grey" };
 const chip = (cls, text) => `<span class="chip ${cls}">${esc(text)}</span>`;
 const statusChip = (s) => chip(...(STATUS[s] || ["c-grey", s]));
 const probeChip = (p) => chip(p.result === "VULNERABLE" ? "c-red" : p.result === "ERROR" ? "c-amber" : "c-green",
@@ -155,9 +156,9 @@ async function loadRuns() {
   if (!runs.length) return;
   if (selectedRun === null || !runs.some((r) => r.id === selectedRun)) selectedRun = runs[0].id;
   $("#runs").innerHTML = runs.map((r) => `<div class="run ${r.id === selectedRun ? "sel" : ""}" data-run="${r.id}">
-    <div class="item-head"><b>${esc(r.title)}</b> ${statusChip(r.status)}</div>
+    <div class="item-head"><b>${esc(r.title)}</b> ${r.severity ? chip(SEVERITY[r.severity], r.severity) : ""} ${statusChip(r.status)}</div>
     <div class="small">${esc(r.summary)}</div>
-    <div class="small">${time(r.started)} · ${r.items.length} workload${r.items.length === 1 ? "" : "s"} · ${esc(r.outcome || "")}</div>
+    <div class="small">run ${r.id} · ${time(r.started)} · ${r.items.length} workload${r.items.length === 1 ? "" : "s"} · ${esc(r.outcome || "")}</div>
   </div>`).join("");
 }
 

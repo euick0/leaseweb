@@ -139,7 +139,7 @@ Simplifications that save hours:
 5. **Triage (LLM), per workload** — input: advisory, grep hits for the package in that repository's source, gateway config, and the exposure facts from step 1. Output through Ollama structured output with the Pydantic schema:
    `affected, reachable, severity_for_this_workload, recommended_action, mitigation_pattern, explanation`.
    `patch_available`, `fixed_version` and `internet_exposed` come from the advisory and the target, not the model. Retry once on invalid output, then fall back to a cached result.
-6. **Rank** — exposed and reachable first, then reachable, then the rest. The dashboard shows the order and the reason.
+6. **Rank** — reachable workloads first, most critical first among them; within the same severity, internet-exposed first. Unreachable workloads come last whatever their severity. When several advisories are waiting, the most severe runs first, and the feed is read again after every run so a critical advisory that arrives mid-run goes next. The dashboard shows the order, the reason and each run's severity.
 7. **Vet the update** — once per `package@version`, cached by SHA-256 and reused for every workload. Produces `clean | suspicious | malicious` with evidence.
 8. **Policy gate** — plain Python over a fleet `policy.yaml` with optional per-repository overrides. Defaults: patch + `clean` → `auto`; `suspicious` → `needs_approval`; `malicious` → `block`; mitigation → `needs_approval`; not reachable → queue, no action.
 9. **Act, per workload**
