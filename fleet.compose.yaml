@@ -1,0 +1,22 @@
+# Fallback fleet: the same services as two Docker Compose projects on the
+# server, one per environment. Use with PP_FLEET=fleet.compose.yaml.
+
+sources:
+  - name: orders-java
+    url: https://git.acme.example/shop/orders-java
+  - name: reports-java
+    url: https://git.acme.example/shop/reports-java
+  - name: billing-py
+    url: https://git.acme.example/shop/billing-py
+
+targets:
+  - name: hyperscaler
+    label: Hyperscaler (stand-in)
+    kind: compose
+    project: pp-hyperscaler
+    provider: "AWS stand-in · Docker on Leaseweb"
+  - name: eu
+    label: EU sovereign cloud
+    kind: compose
+    project: pp-eu
+    provider: "Leaseweb · Docker"

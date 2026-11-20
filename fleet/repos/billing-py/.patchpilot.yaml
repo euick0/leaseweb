@@ -1,0 +1,2 @@
+# Optional per-repository settings. Without this file, defaults apply.
+policy: {}

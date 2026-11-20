@@ -1,0 +1,24 @@
+[project]
+name = "patchpilot"
+version = "0.2.0"
+description = "Exploit-verified patching across a multi-cloud fleet, decided by an open model on your own hardware"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "requests>=2.32",
+    "pyyaml>=6.0",
+    "docker>=7.1",
+    "kubernetes>=31.0",
+    "anthropic>=2.0",          # optional: LLM_PROVIDER=anthropic for development
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

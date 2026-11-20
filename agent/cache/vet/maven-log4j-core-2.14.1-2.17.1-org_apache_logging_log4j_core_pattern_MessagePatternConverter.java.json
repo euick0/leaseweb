@@ -1,0 +1,11 @@
+{
+  "model": "seed",
+  "saved": 0,
+  "answer": {
+    "suspicious": false,
+    "confidence": "high",
+    "category": "security_fix",
+    "evidence_lines": [],
+    "explanation": "Message lookups are no longer evaluated in log messages. Consistent with the fix."
+  }
+}

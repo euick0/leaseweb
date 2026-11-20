@@ -1,0 +1,17 @@
+# Environment "hyperscaler" for the Compose fallback (PP_FLEET=fleet.compose.yaml).
+name: pp-hyperscaler
+services:
+  orders-java:
+    image: orders-java:v1
+    environment: {DB_PASSWORD: demo-orders-db-password}
+    labels: {patchpilot.io/port: "8080"}
+  orders-java-gateway:
+    image: nginx:1.27-alpine
+    ports: ["0.0.0.0:8081:80"]
+    labels: {patchpilot.io/gateway-for: orders-java}
+    volumes:
+      - ./orders-java-gateway.conf:/etc/nginx/nginx.conf:ro
+      - ./runtime/orders-java-gateway/mitigations:/etc/nginx/pp/mitigations
+  callback:
+    image: pp-callback:v1
+    labels: {patchpilot.io/role: infra}

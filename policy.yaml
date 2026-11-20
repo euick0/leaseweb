@@ -1,0 +1,22 @@
+# Policy gate (agent/policy.py). A repository can override any key in the
+# `policy:` section of its .patchpilot.yaml.
+
+# Patch decision by vet verdict of the fixed version.
+patch:
+  clean: auto
+  suspicious: needs_approval
+  malicious: block
+
+# Virtual patches on the gateway always need a human.
+mitigate: needs_approval
+
+# Matched but the code never passes untrusted input to the package.
+not_reachable: ignore
+
+# Act now only where the internet can reach the workload; queue the rest for
+# the next maintenance window (an operator can approve a queued item early).
+# Set to `always` to act everywhere.
+act_now_when: internet_exposed
+
+# When the fix itself is blocked, fall back to a virtual patch if one is possible.
+blocked_patch_fallback: mitigate

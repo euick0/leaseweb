@@ -1,0 +1,35 @@
+# The fleet PatchPilot manages. Sources are where code lives; targets are
+# where it runs. Workloads are discovered, not listed: an image's OCI source
+# label (set at build time) or its app name links it to a source.
+#
+# Demo: two k3d clusters on the hackathon server. "hyperscaler" stands in for
+# an EKS/GKE cluster; to use a real one, add its kubeconfig context here.
+
+registry:
+  push: localhost:5111                 # host-side name, used to push and to scan
+  pull: k3d-pp-registry:5111           # in-cluster name, used in Deployments
+
+sources:
+  - name: orders-java
+    url: https://git.acme.example/shop/orders-java
+  - name: reports-java
+    url: https://git.acme.example/shop/reports-java
+  - name: billing-py
+    url: https://git.acme.example/shop/billing-py
+
+targets:
+  - name: hyperscaler
+    label: Hyperscaler (stand-in)
+    kind: kubernetes
+    context: k3d-pp-hyperscaler
+    namespace: shop
+    provider: "AWS stand-in · k3s on Leaseweb"
+    # Probe through the real load balancer instead of the API server proxy:
+    # endpoints: {orders-java: "http://localhost:8081"}
+  - name: eu
+    label: EU sovereign cloud
+    kind: kubernetes
+    context: k3d-pp-eu
+    namespace: shop
+    provider: "Leaseweb · k3s"
+    # endpoints: {billing-py: "http://localhost:8082"}

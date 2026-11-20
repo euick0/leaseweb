@@ -1,0 +1,2 @@
+acme-authutils==1.0.0
+acme-textfmt==1.0.0

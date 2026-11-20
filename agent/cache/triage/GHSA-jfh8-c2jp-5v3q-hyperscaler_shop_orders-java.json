@@ -1,0 +1,16 @@
+{
+  "model": "seed",
+  "saved": 0,
+  "answer": {
+    "affected": true,
+    "reachable": true,
+    "severity_for_this_workload": "critical",
+    "recommended_action": "patch",
+    "mitigation_pattern": "${",
+    "mitigation_fields": [
+      "header:X-Api-Version",
+      "query"
+    ],
+    "explanation": "App.java logs the X-Api-Version header and the query string of every request with Log4j 2.14.1, so any request can trigger a JNDI lookup. The service is reachable from the internet through its gateway: patch to 2.17.1 now."
+  }
+}

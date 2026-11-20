@@ -1,0 +1,21 @@
+# Environment "eu" for the Compose fallback (PP_FLEET=fleet.compose.yaml).
+name: pp-eu
+services:
+  billing-py:
+    image: billing-py:v1
+    environment: {DB_PASSWORD: demo-billing-db-password, PAYMENT_API_KEY: demo-not-a-real-key}
+    labels: {patchpilot.io/port: "8080"}
+  billing-py-gateway:
+    image: nginx:1.27-alpine
+    ports: ["0.0.0.0:8082:80"]
+    labels: {patchpilot.io/gateway-for: billing-py}
+    volumes:
+      - ./billing-py-gateway.conf:/etc/nginx/nginx.conf:ro
+      - ./runtime/billing-py-gateway/mitigations:/etc/nginx/pp/mitigations
+  reports-java:
+    image: reports-java:v1
+    environment: {DB_PASSWORD: demo-reports-db-password}
+    labels: {patchpilot.io/port: "8080"}
+  callback:
+    image: pp-callback:v1
+    labels: {patchpilot.io/role: infra}

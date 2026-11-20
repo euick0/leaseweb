@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reports-java
+  namespace: shop
+  labels: {app.kubernetes.io/name: reports-java}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: reports-java, track: stable}}
+  template:
+    metadata: {labels: {app: reports-java, track: stable, app.kubernetes.io/name: reports-java}}
+    spec:
+      containers:
+        - name: app
+          image: __REGISTRY__/reports-java:v1
+          ports: [{containerPort: 8080}]
+          env: [{name: DB_PASSWORD, value: demo-reports-db-password}]
+          readinessProbe:
+            httpGet: {path: /health, port: 8080}
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reports-java
+  namespace: shop
+spec:
+  selector: {app: reports-java, track: stable}
+  ports: [{name: http, port: 8080, targetPort: 8080}]
