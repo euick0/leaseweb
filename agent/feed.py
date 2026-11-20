@@ -1,7 +1,7 @@
 """Mock advisory feed. Files in feed/*.json are OSV records, so a live OSV
 query can replace this later without touching the parser.
 
-PatchPilot-specific hints live in `database_specific.patchpilot`, which OSV
+Lighthouse-specific hints live in `database_specific.lighthouse`, which OSV
 reserves for the publishing database:
   grep            - strings to search for in a repository's source (triage input)
   probe           - name of the safe exploit probe that proves the result
@@ -21,7 +21,7 @@ from typing import Optional
 from . import config
 from .versions import compare
 
-# OSV ecosystem name -> PatchPilot ecosystem driver
+# OSV ecosystem name -> Lighthouse ecosystem driver
 ECOSYSTEMS = {"Maven": "maven", "PyPI": "pypi", "Go": "go"}
 
 
@@ -54,7 +54,7 @@ def _database_specific(adv: dict) -> dict:
 
 
 def hints(adv: dict) -> dict:
-    return _database_specific(adv).get("patchpilot") or {}
+    return _database_specific(adv).get("lighthouse") or {}
 
 
 def affected_packages(adv: dict) -> list[tuple[str, str, dict]]:

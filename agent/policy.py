@@ -1,5 +1,5 @@
 """Policy gate: plain Python over policy.yaml, with optional per-repository
-overrides from the repository's .patchpilot.yaml (`policy:` key).
+overrides from the repository's .lighthouse.yaml (`policy:` key).
 
 Decisions: auto | needs_approval | block | queue | ignore | escalate. The model's
 recommendation is an input; the decision is made here, in code.

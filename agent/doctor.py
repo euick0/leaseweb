@@ -2,7 +2,7 @@
 
   uv run python -m agent.doctor          # exit code 1 if a required piece is missing
 
-Reads patchpilot.yaml, fleet.yaml, policy.yaml and the environment (.env); does
+Reads lighthouse.yaml, fleet.yaml, policy.yaml and the environment (.env); does
 not change anything. Target environments are contacted read-only to list
 workloads.
 """
@@ -110,7 +110,7 @@ def main() -> int:
     if config.SETTINGS_FILE.exists():
         r.line(True, "company settings loaded")
     else:
-        r.line(True, "no patchpilot.yaml: demo defaults (copy patchpilot.example.yaml to start)")
+        r.line(True, "no lighthouse.yaml: demo defaults (copy lighthouse.example.yaml to start)")
     gaps = settings.missing_vars(raw)
     r.line(not gaps, "every ${SECRET} is set" if not gaps else "fill in (in .env or the environment): " + ", ".join(gaps))
 

@@ -126,7 +126,7 @@ def test_propose_only_opens_a_pull_request_and_leaves_production_to_ci(demo, mon
     assert orders["proof"]["after"]["via"] == "canary"
     assert "pull/12" in orders["outcome"]
     pr = calls[0][2]
-    assert pr["head"].startswith("patchpilot/") and "VULNERABLE → SAFE" in pr["body"]
+    assert pr["head"].startswith("lighthouse/") and "VULNERABLE → SAFE" in pr["body"]
     assert "2.17.1" in subprocess.run(["git", "show", f"{pr['head']}:vendor.txt"], cwd=bare,
                                       capture_output=True, text=True).stdout
     assert "2.14.1" in git("orders-java", "show", "main:vendor.txt")          # nothing merged

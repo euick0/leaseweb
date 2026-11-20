@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: callback
   namespace: shop
-  labels: {patchpilot.io/role: infra}
+  labels: {lighthouse.io/role: infra}
 spec:
   replicas: 1
   selector: {matchLabels: {app: callback}}

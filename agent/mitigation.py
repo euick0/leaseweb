@@ -51,7 +51,7 @@ def render(advisory_id: str, pattern: str, fields: list[str]) -> str:
         raise InvalidMitigation("no request fields to check")
     rx = regex(pattern)
     fields = sorted({*fields, "path"})
-    lines = [f"# PatchPilot virtual patch for {advisory_id}: block {pattern!r} in {', '.join(fields)}"]
+    lines = [f"# Lighthouse virtual patch for {advisory_id}: block {pattern!r} in {', '.join(fields)}"]
     for field in fields:
         lines.append(f'if ({variable(field)} ~* "{rx}") {{ return 403; }}')
     return "\n".join(lines) + "\n"

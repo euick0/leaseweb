@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lighthouse</title>
 <link rel="icon" href="/static/lighthouse.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
 <link rel="stylesheet" href="/static/lighthouse.css">
 </head>
 <body>
@@ -311,10 +309,10 @@ const SKELETON = {
 // Each workload's state on the map comes from its most urgent item across the advisory runs,
 // plus the latest exploit check. Fill, border style and label all differ per state.
 const MAP_STATE = { matched: "found", running: "progress", awaiting_approval: "approval", queued: "scheduled", proposed: "proposed",
-                    done: "resolved", blocked: "failed", failed: "failed", rolled_back: "failed", escalated: "failed", ignored: "ignored" };
-const MAP_URG = { approval: 0, exploit: 1, failed: 2, found: 3, progress: 4, proposed: 5, scheduled: 5, shielded: 6, resolved: 7, ignored: 8, safe: 9 };
+                    done: "resolved", blocked: "blocked", failed: "failed", rolled_back: "failed", escalated: "failed", ignored: "ignored" };
+const MAP_URG = { approval: 0, exploit: 1, failed: 2, blocked: 2, found: 3, progress: 4, proposed: 5, scheduled: 5, shielded: 6, resolved: 7, ignored: 8, safe: 9 };
 const MAP_PILL = { safe: "Safe", found: "Found · checking", exploit: "Exploitable", progress: "In progress", approval: "Needs approval",
-                   scheduled: "Scheduled", proposed: "Fix proposed", shielded: "Shielded", resolved: "Resolved · proven", ignored: "No action needed" };
+                   scheduled: "Scheduled", proposed: "Fix proposed", blocked: "Fix refused", shielded: "Shielded", resolved: "Resolved · proven", ignored: "No action needed" };
 const MAP_TEXT = {
   safe: "No open advisory affects this service.",
   found: "An open advisory names a package this service ships. Lighthouse is checking whether it can really be attacked before it changes anything.",
@@ -325,6 +323,7 @@ const MAP_TEXT = {
   scheduled: "Scheduled for the next maintenance window. You can do it now.",
   proposed: "Verified on a canary. A pull request waits for your team's CI/CD to roll it out.",
   failed: "The action did not complete, so production was left as it was. Someone needs to look.",
+  blocked: "The fix was refused, by policy or by a person, so nothing was changed. The service still runs the vulnerable version.",
   shielded: "A gateway rule blocks the attack while a real fix is not possible.",
   resolved: "Fixed, and the same exploit no longer works.",
   resolvedRescan: "Fixed. There is no exploit check for this advisory, so the proof is a re-scan of the new image plus a health check.",
@@ -332,6 +331,7 @@ const MAP_TEXT = {
 };
 const MAP_NEXT = { safe: "Nothing to do", found: "Exploit check", exploit: "Build and review a fix", progress: "Roll out, then prove it",
                    approval: "Your decision", scheduled: "Maintenance window", proposed: "Merge the pull request", failed: "Someone needs to look",
+                   blocked: "Shield it at the gateway or wait for a safe fix",
                    shielded: "Replace the rule with a real fix", resolved: "Done", ignored: "Nothing to do" };
 const INTRO_KEY = "lh-intro-hidden";
 const introHidden = () => { try { return localStorage.getItem(INTRO_KEY) === "1"; } catch { return false; } };
@@ -428,7 +428,7 @@ function mapDetail(states, L) {
   if (!w) return `<p>Select a service on the map.</p>`;
   const s = states.get(w.id), env = envOf(w.target), it = s.full;
   const key = s.st === "exploit" ? (w.internet_exposed ? "exploitX" : "exploitI") : s.rescan ? "resolvedRescan" : s.st;
-  const text = (s.st === "failed" && (it?.outcome || STATUS[s.status]?.[2])) || MAP_TEXT[key];
+  const text = (["failed", "blocked"].includes(s.st) && (it?.outcome || STATUS[s.status]?.[2])) || MAP_TEXT[key];
   const withWl = it ? { ...it, workload: it.workload || w } : null;
   return `<span class="where">${esc(env.label)} · ${esc(env.provider || env.kind)}</span><span class="nm">${esc(w.name)}</span>
     <span><span class="pillwrap s-${s.st}"><span class="pill">${esc(s.pill)}</span></span></span>
@@ -472,7 +472,7 @@ function renderMap(states) {
   </div>`;
   const hidden = view.only && L.hiddenSafe ? `<p class="small" style="color:#A39E8E;margin:0;padding:0 16px 16px">Hiding ${plural(L.hiddenSafe, "safe service")}.</p>` : "";
   const legend = [["", "Safe"], ["found", "Found · checking"], ["exploit", "Exploitable"], ["progress", "In progress"], ["approval", "Needs approval"],
-    ["scheduled", "Scheduled"], ["failed", "Failed or rolled back"], ["proposed", "Fix proposed"], ["shielded", "Shielded"], ["resolved", "Resolved · proven or verified"], ["hot", "Reachable from the internet"]]
+    ["scheduled", "Scheduled"], ["failed", "Failed or rolled back"], ["blocked", "Fix refused"], ["proposed", "Fix proposed"], ["shielded", "Shielded"], ["resolved", "Resolved · proven or verified"], ["hot", "Reachable from the internet"]]
     .map(([k, t]) => `<li><i class="${k ? "l-" + k : ""}"></i>${t}</li>`).join("");
   set("map-body", `<div class="map-row"><div class="map-scroll">${host}${hidden}</div><aside class="map-detail" aria-label="Selected service" aria-live="polite">${mapDetail(states, L)}</aside></div>
     <ul class="legend" aria-label="Legend">${legend}</ul>`);

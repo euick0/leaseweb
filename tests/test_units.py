@@ -328,7 +328,7 @@ def test_fallback_uses_advisory_severity():
 # ------------------------------------------------------- kubernetes discovery
 
 def _dep(name, labels, annotations=None, role=None):
-    meta = {"name": name, "labels": {"patchpilot.io/role": role} if role else {}, "annotations": annotations or {}}
+    meta = {"name": name, "labels": {"lighthouse.io/role": role} if role else {}, "annotations": annotations or {}}
     return {"metadata": meta, "spec": {"template": {"metadata": {"labels": labels}, "spec": {"containers": [
         {"name": "app", "image": f"reg/{name}:v1", "readinessProbe": {"httpGet": {"path": "/healthz"}}}]}}}}
 
@@ -339,10 +339,10 @@ def _svc(name, selector, kind="ClusterIP"):
 
 def test_discover_exposure_provider_and_gateways():
     deps = [_dep("orders", {"app": "orders", "track": "stable"}),
-            _dep("orders-gateway", {"app": "orders-gateway"}, {"patchpilot.io/gateway-for": "orders"}, "gateway"),
+            _dep("orders-gateway", {"app": "orders-gateway"}, {"lighthouse.io/gateway-for": "orders"}, "gateway"),
             _dep("reports", {"app": "reports"}),
             _dep("web", {"app": "web"}),
-            _dep("orders-canary", {"patchpilot.io/canary-of": "orders"}, role="canary")]
+            _dep("orders-canary", {"lighthouse.io/canary-of": "orders"}, role="canary")]
     svcs = [_svc("orders", {"app": "orders", "track": "stable"}), _svc("orders-gateway", {"app": "orders-gateway"}, "LoadBalancer"),
             _svc("reports", {"app": "reports"}), _svc("web", {"app": "web"})]
     ing = [{"metadata": {"name": "main"}, "spec": {"rules": [{"host": "shop.example", "http": {"paths": [

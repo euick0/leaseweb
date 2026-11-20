@@ -23,8 +23,8 @@ class JiraIssue:
         description = "\n".join(f"{k}: {v}" for k, v in message.items() if v and k != "title")
         requests.post(f"{self.url}/rest/api/2/issue", auth=(self.user, self.token), timeout=20, json={
             "fields": {"project": {"key": self.project}, "issuetype": {"name": self.issue_type},
-                       "summary": f"[PatchPilot] {message['title']}"[:250], "description": description,
-                       "labels": ["patchpilot", "security"]}}).raise_for_status()
+                       "summary": f"[Lighthouse] {message['title']}"[:250], "description": description,
+                       "labels": ["lighthouse", "security"]}}).raise_for_status()
 
     def check(self):
         missing = [k for k in ("url", "project", "user", "token") if not getattr(self, k)]

@@ -161,6 +161,7 @@ a.kpi:hover { border-color: var(--ink); text-decoration: none; color: var(--ink)
 .s-approval:hover { border-color: var(--ink); }
 .s-scheduled { border-style: dashed; border-color: var(--side-muted); } .s-scheduled .pill { background: transparent; border-color: var(--side-muted); }
 .s-failed { border-style: dashed; border-color: #F0624D; } .s-failed .pill { background: transparent; border-color: #F0624D; color: #F59A8B; }
+.s-blocked { border-style: dotted; border-color: var(--beam); } .s-blocked .pill { background: transparent; border-color: var(--beam); color: var(--beam); }
 .s-shielded { background: #16202E; border-color: #8FB3E8; color: #E8F0FB; } .s-shielded .mt { color: #A9C1E3; } .s-shielded .pill { background: #8FB3E8; border-color: #8FB3E8; color: var(--ink); }
 .s-resolved { background: #13251A; border-color: #6FCF8E; color: #E6F6EC; } .s-resolved .mt { color: #9FD3B0; } .s-resolved .pill { background: #6FCF8E; border-color: #6FCF8E; color: var(--ink); }
 .s-proposed { border-style: dashed; border-color: #6FCF8E; } .s-proposed .pill { background: transparent; border-color: #6FCF8E; color: #9FD3B0; }
@@ -185,6 +186,7 @@ a.kpi:hover { border-color: var(--ink); text-decoration: none; color: var(--ink)
 .legend i.l-found { border: 1.5px dashed var(--beam); background: none; } .legend i.l-exploit { border-color: #F0624D; background: #3B1611; }
 .legend i.l-progress { border-color: var(--beam); } .legend i.l-approval { border-color: var(--beam); background: var(--beam); }
 .legend i.l-scheduled { border: 1.5px dashed var(--side-muted); background: none; } .legend i.l-failed { border: 1.5px dashed #F0624D; background: none; }
+.legend i.l-blocked { border: 1.5px dotted var(--beam); background: none; }
 .legend i.l-shielded { border-color: #8FB3E8; background: #16202E; } .legend i.l-resolved { border-color: #6FCF8E; background: #13251A; }
 .legend i.l-proposed { border: 1.5px dashed #6FCF8E; background: none; } .legend i.l-hot { width: 18px; height: 0; border: 0; border-top: 2px solid #F0624D; border-radius: 0; }
 .map-empty { border: 1px dashed #4A4840; border-radius: 12px; padding: 28px; display: grid; gap: 18px; }

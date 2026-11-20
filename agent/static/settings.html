@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Settings · Lighthouse</title>
 <link rel="icon" href="/static/lighthouse.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
 <link rel="stylesheet" href="/static/lighthouse.css">
 </head>
 <body>
@@ -127,11 +125,11 @@ const plural = (n, word, many) => `${n} ${n === 1 ? word : (many || word + "s")}
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 // ------------------------------------------------------------------ auth
-// Same token as the dashboard; without one (or with a rejected one) the dashboard's sign-in screen takes over.
+// Same token as the dashboard. When the server rejects it (or there is none and login is on),
+// the dashboard's sign-in screen takes over; with auth "none" no token is needed at all.
 const store = { get: () => { try { return localStorage.getItem("pp-token"); } catch { return null; } },
                 clear: () => { try { localStorage.removeItem("pp-token"); } catch {} } };
 const token = store.get();
-if (!token) location.replace("/");
 const api = async (path, opts = {}) => {
   const headers = { ...(opts.headers || {}), Authorization: `Bearer ${token || ""}` };
   if (opts.json !== undefined) { headers["Content-Type"] = "application/json"; opts = { ...opts, body: JSON.stringify(opts.json) }; }
@@ -364,7 +362,7 @@ function renderModels() {
   const st = S.llm.status;
   $("#llm-status").innerHTML = st.sovereign ? chip("c-green", "Sovereign", "No prompt has left this infrastructure")
     : chip("c-amber", `${plural(st.hosted_calls, "hosted call")}, ${plural(st.redactions, "redaction")}`);
-  $("#llm-src").textContent = S.llm.changed ? "This list was set here and overrides the config files." : "This list comes from LLM_PROVIDER and patchpilot.yaml.";
+  $("#llm-src").textContent = S.llm.changed ? "This list was set here and overrides the config files." : "This list comes from LLM_PROVIDER and lighthouse.yaml.";
   $("#reset-llm").hidden = !S.llm.changed;
   chain.forEach((c, i) => api(`/api/settings/llm/models?provider=${encodeURIComponent(c.name)}`).then((r) => {
     const dl = document.getElementById(`models-${i}`);
@@ -398,7 +396,7 @@ $("#test-llm").addEventListener("click", async () => {
   finally { b.disabled = false; }
 });
 $("#reset-llm").addEventListener("click", async () => {
-  if (!await confirmDialog("Go back to the models set in LLM_PROVIDER and patchpilot.yaml?", "Restore config files")) return;
+  if (!await confirmDialog("Go back to the models set in LLM_PROVIDER and lighthouse.yaml?", "Restore config files")) return;
   try { await api("/api/settings/llm", { method: "DELETE" }); toast("Models restored from the config files."); await load({ keep: ["autonomy", "scope"] }); }
   catch (e) { toast(e.message, true); }
 });
