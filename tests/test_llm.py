@@ -29,8 +29,10 @@ def completion(content: str) -> FakeResponse:
 
 
 @pytest.fixture
-def http(monkeypatch):
-    """Records every POST; `http.replies` is a list of responses (or exceptions) handed out in order."""
+def http(monkeypatch, fleet_policy):
+    """Records every POST; `http.replies` is a list of responses (or exceptions) handed out in order.
+    Hosted providers are allowed here, as a fleet that opted in would have them."""
+    fleet_policy("allow_hosted_llm: true")
     class Http:
         calls: list = []
         replies: list = []
@@ -44,7 +46,7 @@ def http(monkeypatch):
 
     monkeypatch.setattr(providers.requests, "post", post)
     for k in ("OPENAI_API_KEY", "DEEPSEEK_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "MOONSHOT_API_KEY",
-              "KIMI_API_KEY", "MISTRAL_API_KEY", "DEEPSEEK_MODEL", "OPENAI_COMPATIBLE_BASE_URL"):
+              "KIMI_API_KEY", "MISTRAL_API_KEY", "DEEPSEEK_MODEL", "OPENAI_COMPATIBLE_BASE_URL", "OLLAMA_URL"):
         monkeypatch.delenv(k, raising=False)
     providers.reset()
     yield Http
@@ -132,3 +134,58 @@ def test_live_answer_is_cached_under_the_model_that_gave_it(http, monkeypatch, t
     answer, source = llm.ask("vet", "k1", "sys", "diff", ChunkReview)
     assert source == "live" and answer.suspicious
     assert json.loads((tmp_path / "vet" / "k1.json").read_text())["model"] == "deepseek:deepseek-chat"
+
+
+# ------------------------------------------------------------- sovereignty
+
+def test_hosted_provider_is_refused_unless_the_policy_allows_it(http, monkeypatch, fleet_policy):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "k")
+    fleet_policy("allow_hosted_llm: false")
+    monkeypatch.setattr(llm, "egress", {"local_calls": 0, "hosted_calls": 0, "redactions": 0})
+    use(monkeypatch, "ollama,deepseek")
+    http.replies = [requests.ConnectionError("refused")]            # ollama is down; deepseek must not be tried
+    with pytest.raises(llm.LLMUnavailable, match="hosted provider refused"):
+        llm.complete("sys", "diff", ChunkReview)
+    assert [c["url"] for c in http.calls] == ["http://localhost:11434/api/chat"]
+    with pytest.raises(RuntimeError, match="allow_hosted_llm: false"):   # and the agent would not even start
+        llm.check_sovereignty()
+    assert llm.status()["hosted_providers"] == ["deepseek"] and not llm.status()["sovereign"]
+
+    use(monkeypatch, "ollama")
+    llm.check_sovereignty()
+    assert llm.status()["sovereign"]
+
+
+@pytest.mark.parametrize("url,outside", [
+    ("http://localhost:11434", False), ("http://127.0.0.1:8000/v1", False), ("http://10.0.0.5:8000/v1", False),
+    ("http://vllm:8000/v1", False), ("http://llm.shop.internal/v1", False), ("https://api.openai.com/v1", True),
+    ("http://8.8.8.8/v1", True), ("", True),
+])
+def test_which_providers_count_as_hosted(url, outside):
+    class P:
+        base_url = url
+    assert providers.hosted(P()) is outside
+
+
+def test_prompts_to_hosted_apis_are_redacted_and_counted(http, monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    monkeypatch.setattr(llm, "egress", {"local_calls": 0, "hosted_calls": 0, "redactions": 0})
+    use(monkeypatch, "mistral")
+    http.replies = [completion(json.dumps(ANSWER))]
+    prompt = ("proxy_pass http://10.4.0.7:8080;\nset $api_key \"s3cr3t-value\";\n"
+              "upstream billing.shop.internal; contact ops@acme.example\n"
+              "app.py:22: key_id = self.headers.get(\"X-Key-Id\")")
+    llm.complete("sys", prompt, ChunkReview)
+    sent = http.calls[-1]["body"]["messages"][1]["content"]
+    for secret in ("10.4.0.7", "s3cr3t-value", "billing.shop.internal", "ops@acme.example"):
+        assert secret not in sent
+    assert 'self.headers.get("X-Key-Id")' in sent                    # the code the model needs is untouched
+    assert llm.egress["hosted_calls"] == 1 and llm.egress["redactions"] == 4
+
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", "http://vllm:8000/v1")
+    monkeypatch.setenv("OPENAI_COMPATIBLE_MODEL", "m")
+    use(monkeypatch, "vllm")
+    http.replies = [completion(json.dumps(ANSWER))]
+    llm.complete("sys", prompt, ChunkReview)
+    assert http.calls[-1]["body"]["messages"][1]["content"] == prompt   # our own hardware: nothing redacted
+    assert llm.egress == {"local_calls": 1, "hosted_calls": 1, "redactions": 4}

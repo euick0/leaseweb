@@ -369,6 +369,14 @@ class KubernetesTarget:
             self._restart_gateway(wl.gateway, before)
             raise
 
+    def remove_mitigation(self, wl: Workload, key: str) -> None:
+        if not wl.gateway:
+            return
+        rules = self._mitigations(wl.gateway)
+        if rules.pop(f"{key}.conf", None) is not None:
+            self._write_mitigations(wl.gateway, rules)
+            self._restart_gateway(wl.gateway, rules)
+
     def clear_mitigations(self, wl: Workload) -> None:
         if wl.gateway and self._mitigations(wl.gateway):
             self._write_mitigations(wl.gateway, {})

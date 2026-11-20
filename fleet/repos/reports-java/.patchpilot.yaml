@@ -1,3 +1,2 @@
-# The reports job is internal: patch it in the maintenance window, unless approved earlier.
-policy:
-  act_now_when: internet_exposed
+# Optional per-repository settings. A repository can only tighten the fleet policy.
+policy: {}

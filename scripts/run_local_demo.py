@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "tests")]
 os.environ.setdefault("LLM_MODE", "cache")
+os.environ.setdefault("PP_DEMO", "1")
 
 from agent import config  # noqa: E402
 

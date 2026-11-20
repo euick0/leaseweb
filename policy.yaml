@@ -1,16 +1,20 @@
-# Policy gate (agent/policy.py). A repository can override any key in the
-# `policy:` section of its .patchpilot.yaml.
+# Policy gate (agent/policy.py). Validated at startup: an unknown key or value
+# stops the agent. A repository can tighten `patch`, `mitigate` and
+# `not_reachable` in the `policy:` section of its .patchpilot.yaml; it can never
+# loosen them, and the other keys are fleet-only.
 
 # Patch decision by vet verdict of the fixed version.
 patch:
   clean: auto
+  unreviewed: needs_approval   # the model did not review every required file; can never be auto
   suspicious: needs_approval
   malicious: block
 
 # Virtual patches on the gateway always need a human.
 mitigate: needs_approval
 
-# Matched but the code never passes untrusted input to the package.
+# The model says the code never passes untrusted input to the package. Applies to
+# internal workloads; on an internet-exposed one this is never less than `queue`.
 not_reachable: ignore
 
 # Act now only where the internet can reach the workload; queue the rest for
@@ -20,3 +24,8 @@ act_now_when: internet_exposed
 
 # When the fix itself is blocked, fall back to a virtual patch if one is possible.
 blocked_patch_fallback: mitigate
+
+# Sovereignty: prompts (code snippets, gateway config) only go to models on our
+# own infrastructure. With `false`, a hosted provider in LLM_PROVIDER stops the
+# agent at startup. With `true`, prompts to hosted APIs are redacted and counted.
+allow_hosted_llm: false

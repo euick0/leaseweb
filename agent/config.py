@@ -8,6 +8,9 @@ from pathlib import Path
 WORKSPACE = Path(os.environ.get("PP_WORKSPACE", Path(__file__).resolve().parent.parent))
 
 ARTIFACTS = WORKSPACE / "artifacts"
+# Recorded when an artifact first enters the store, and kept outside it: whoever can
+# swap a file in artifacts/ cannot fix up its checksum in the same place.
+CHECKSUMS = Path(os.environ.get("PP_CHECKSUMS", WORKSPACE / "checksums.lock"))
 FEED_DIR = WORKSPACE / "feed"
 SCENARIOS_DIR = WORKSPACE / "scenarios"
 FLEET_FILE = Path(os.environ.get("PP_FLEET", WORKSPACE / "fleet.yaml"))
@@ -32,9 +35,15 @@ ANTHROPIC_EFFORT = os.environ.get("ANTHROPIC_EFFORT", "medium")
 LLM_MODE = os.environ.get("LLM_MODE", "live")
 LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "120"))
 VET_BUDGET_SECONDS = float(os.environ.get("VET_BUDGET_SECONDS", "60"))
+# An update that changes at most this many files is reviewed in full; a larger
+# one must have its flagged files, new files and the advisory's focus files reviewed.
+VET_REVIEW_ALL_UP_TO = int(os.environ.get("VET_REVIEW_ALL_UP_TO", "20"))
 
 # Canary and rollout
 HEALTH_TIMEOUT = float(os.environ.get("PP_HEALTH_TIMEOUT", "60"))
 ROLLOUT_TIMEOUT = float(os.environ.get("PP_ROLLOUT_TIMEOUT", "120"))
+
+# Demo controls (publish a scenario, wipe the decision log) exist only with PP_DEMO=1.
+DEMO = os.environ.get("PP_DEMO", "") == "1"
 
 FEED_POLL_SECONDS = float(os.environ.get("FEED_POLL_SECONDS", "2"))
