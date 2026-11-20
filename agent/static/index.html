@@ -3,201 +3,68 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PatchPilot</title>
-<style>
-:root {
-  --bg: #f6f7f9; --panel: #ffffff; --ink: #16181d; --muted: #5d6573; --line: #e2e5ea;
-  --red: #c62828; --red-bg: #fdecec; --green: #1b7f3b; --green-bg: #e7f6ec;
-  --amber: #a15c00; --amber-bg: #fff4e0; --blue: #1f5fbf; --blue-bg: #e8f0fc; --violet: #6b3fb5; --violet-bg: #f1ebfb;
-  --grey-bg: #eef0f3; --on-blue: #fff; --shadow: 0 8px 24px rgba(16, 24, 40, .12);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111317; --panel: #1a1d23; --ink: #e8eaee; --muted: #9aa3b2; --line: #2b3039;
-    --red: #ff6b6b; --red-bg: #3a1d1f; --green: #4cc27a; --green-bg: #17301f;
-    --amber: #f0a742; --amber-bg: #352813; --blue: #78a8ff; --blue-bg: #18253d; --violet: #b394f0; --violet-bg: #271f3a;
-    --grey-bg: #242830; --on-blue: #0b1220; --shadow: 0 8px 24px rgba(0, 0, 0, .45);
-  }
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-a { color: var(--blue); text-decoration: none; }
-a:hover { text-decoration: underline; }
-button, input { font: inherit; color: var(--ink); }
-button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-button:hover { border-color: var(--muted); }
-button.primary { background: var(--blue); color: var(--on-blue); border-color: var(--blue); }
-button.danger { color: var(--red); }
-button:disabled { opacity: .5; cursor: default; }
-input[type=search], input[type=password] { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 6px 10px; min-width: 0; }
-
-/* shell */
-.app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
-.side { background: var(--panel); border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
-.brand { font-weight: 800; font-size: 17px; padding: 0 8px 14px; }
-.brand .small { display: block; font-weight: 400; }
-.nav a { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; color: var(--ink); font-weight: 500; }
-.nav a:hover { background: var(--grey-bg); text-decoration: none; }
-.nav a.active { background: var(--blue-bg); color: var(--blue); }
-.badge { margin-left: auto; background: var(--red); color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 7px; line-height: 18px; }
-.side-foot { margin-top: auto; padding: 8px; display: grid; gap: 6px; }
-.top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.top h1 { font-size: 18px; margin: 0; }
-.add-adv { display: flex; gap: 6px; }
-.add-adv input { width: 170px; }
-.top .right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.conn { background: var(--amber-bg); color: var(--amber); padding: 6px 20px; font-size: 13px; }
-main { padding: 16px 20px 40px; display: grid; gap: 16px; }
-@media (max-width: 900px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
-  .side { position: static; height: auto; flex-direction: row; align-items: center; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
-  .brand { padding: 0 8px 0 0; } .brand .small { display: none; }
-  .nav { display: flex; gap: 2px; } .nav a { white-space: nowrap; }
-  .side-foot { margin: 0 0 0 auto; padding: 0; }
-  .side-foot .small { display: none; }
-  .top, main { padding-left: 16px; padding-right: 16px; }
-}
-@media (max-width: 640px) {
-  .side { flex-wrap: wrap; overflow: visible; }
-  .nav { order: 3; width: 100%; overflow-x: auto; }
-}
-
-/* menu */
-details.menu { position: relative; }
-details.menu > summary { list-style: none; cursor: pointer; border: 1px dashed var(--muted); border-radius: 6px; padding: 5px 10px; color: var(--muted); }
-details.menu > summary::-webkit-details-marker { display: none; }
-.menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 6px; width: min(320px, 90vw); display: grid; gap: 2px; }
-.menu-list button { border: 0; text-align: left; display: grid; gap: 2px; padding: 8px; }
-.menu-list button:hover { background: var(--grey-bg); }
-.menu-list .small { padding: 6px 8px; }
-
-/* blocks */
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
-h2 { font-size: 13px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.sec-head h2 { margin: 0; }
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; align-items: start; }
-.cols { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 1000px) { .cols { grid-template-columns: minmax(0, 1fr); } }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; color: var(--ink); display: grid; gap: 2px; }
-a.kpi:hover { border-color: var(--muted); text-decoration: none; }
-.kpi-v { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.kpi-l { font-weight: 600; }
-.kpi.red .kpi-v { color: var(--red); } .kpi.amber .kpi-v { color: var(--amber); } .kpi.green .kpi-v { color: var(--green); }
-.envs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px; }
-.env { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; background: var(--panel); }
-.env-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-.small { color: var(--muted); font-size: 12px; }
-.chip { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.c-red { background: var(--red-bg); color: var(--red); }
-.c-green { background: var(--green-bg); color: var(--green); }
-.c-amber { background: var(--amber-bg); color: var(--amber); }
-.c-blue { background: var(--blue-bg); color: var(--blue); }
-.c-violet { background: var(--violet-bg); color: var(--violet); }
-.c-grey { background: var(--grey-bg); color: var(--muted); }
-.empty { color: var(--muted); padding: 12px 0; }
-.err { color: var(--red); font-size: 12px; }
-
-/* tables */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-tr:last-child td { border-bottom: 0; }
-tr.link { cursor: pointer; } tr.link:hover td { background: var(--grey-bg); }
-@media (max-width: 640px) {
-  .hide-sm { display: none; }
-  table.stack thead { display: none; }
-  table.stack tr { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-  table.stack tr:last-child { border-bottom: 0; }
-  table.stack td { border: 0; padding: 0; }
-}
-
-/* advisories and items */
-.run { padding: 8px; border-radius: 6px; border: 1px solid transparent; display: grid; gap: 2px; color: var(--ink); }
-.run:hover { background: var(--grey-bg); text-decoration: none; }
-.run.sel { border-color: var(--blue); background: var(--blue-bg); }
-.items { display: grid; gap: 10px; }
-.item { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; background: var(--panel); }
-.item.sel { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
-.item-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.item-head .rank { font-weight: 700; color: var(--muted); }
-.facts { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 6px 12px; margin: 4px 0; }
-.facts dt { color: var(--muted); font-size: 12px; font-weight: 600; padding-top: 1px; }
-.facts dd { margin: 0; display: grid; gap: 4px; }
-@media (max-width: 640px) { .facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } .facts dd { margin-bottom: 6px; } }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.proof { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 18px; font-weight: 800; }
-.proof .arrow { color: var(--muted); font-weight: 400; }
-.v-VULNERABLE { color: var(--red); } .v-SAFE, .v-BLOCKED { color: var(--green); } .v-ERROR { color: var(--amber); }
-.evidence { border-left: 3px solid var(--red); padding: 4px 8px; background: var(--red-bg); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 12px 0; }
-.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 10px; color: var(--muted); background: none; }
-.tabs button.on { color: var(--ink); border-bottom-color: var(--blue); font-weight: 600; }
-.events { display: grid; gap: 2px; }
-.ev { display: grid; grid-template-columns: 64px 110px minmax(0, 1fr); gap: 8px; padding: 4px 6px; border-radius: 4px; }
-.ev:hover { background: var(--grey-bg); }
-.ev .t { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
-.ev details summary { cursor: pointer; }
-.ev pre { white-space: pre-wrap; word-break: break-word; background: var(--grey-bg); padding: 8px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; max-height: 320px; overflow: auto; }
-@media (max-width: 640px) { .ev { grid-template-columns: 52px minmax(0, 1fr); } .ev .s { display: none; } }
-.st-ok { color: var(--green); } .st-fail { color: var(--red); } .st-warn { color: var(--amber); } .st-ai { color: var(--violet); } .st-pending { color: var(--blue); } .st-info { color: var(--muted); }
-
-/* sign-in, dialog, toasts */
-.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
-.login form { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 24px; width: min(400px, 100%); display: grid; gap: 12px; box-shadow: var(--shadow); }
-.login h1 { margin: 0; font-size: 20px; }
-dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 20px; width: min(420px, calc(100vw - 32px)); box-shadow: var(--shadow); }
-dialog::backdrop { background: rgba(0, 0, 0, .35); }
-dialog p { margin: 0 0 16px; }
-.toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; max-width: calc(100vw - 32px); }
-.toast { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow); width: 340px; max-width: 100%; }
-.toast.bad { border-left-color: var(--red); }
-[hidden] { display: none !important; }
-</style>
+<title>Lighthouse</title>
+<link rel="icon" href="/static/lighthouse.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="/static/lighthouse.css">
 </head>
 <body>
 <div class="login" id="login" hidden>
-  <form id="login-form">
-    <h1>Sign in to PatchPilot</h1>
-    <div class="small">Use your token from <code>PP_API_TOKENS</code>, or the one the agent printed when it started. Approvals are recorded under the name that token belongs to.</div>
-    <input type="password" id="login-token" placeholder="API token" autocomplete="current-password" required>
-    <div class="err" id="login-err"></div>
-    <button class="primary" type="submit">Sign in</button>
-  </form>
+  <section class="login-brand" aria-label="About Lighthouse">
+    <div class="beam" aria-hidden="true"></div>
+    <div class="brand-row"><svg class="logo" width="40" height="40" aria-hidden="true"><use href="/static/lighthouse.svg#mark"/></svg><span class="wordmark">Lighthouse</span></div>
+    <div class="pitch">
+      <h1>One advisory in. A proven fix for every service out.</h1>
+      <p>Lighthouse finds the services a new vulnerability really affects, fixes them, and proves the fix worked. It asks a person when policy says so.</p>
+    </div>
+    <ul class="facts-row"><li>Runs on your own servers</li><li>Every approval is recorded by name</li><li>Rolls back on any failed step</li></ul>
+  </section>
+  <section class="login-form-wrap" aria-labelledby="login-title">
+    <form id="login-form">
+      <div><h2 id="login-title">Sign in</h2><p class="muted">Paste your access token. Your approvals are recorded under the name it belongs to.</p></div>
+      <label for="login-token">Access token</label>
+      <input type="password" id="login-token" autocomplete="current-password" required>
+      <div class="err" id="login-err" role="alert"></div>
+      <button class="primary big" type="submit">Sign in</button>
+      <details class="help"><summary>Where do I find my token?</summary>
+        <ul><li>Ask whoever runs Lighthouse; they set one per person in <code>PP_API_TOKENS</code>.</li>
+          <li>Running it yourself? The agent prints a token when it starts.</li>
+          <li>A link ending in <code>#token=…</code> signs you in once, and the browser remembers it.</li></ul></details>
+    </form>
+  </section>
 </div>
 
 <div class="app" id="app" hidden>
-  <aside class="side">
-    <div class="brand">PatchPilot<span class="small">Proven fixes across the fleet</span></div>
-    <nav class="nav">
-      <a href="#/overview" data-page="overview">Overview</a>
-      <a href="#/advisories" data-page="advisories">Advisories</a>
-      <a href="#/approvals" data-page="approvals">Approvals <span class="badge" id="badge" hidden></span></a>
-      <a href="#/fleet" data-page="fleet">Fleet</a>
-      <a href="#/audit" data-page="audit">Audit log</a>
-      <a href="/settings">Settings</a>
+  <aside class="side" aria-label="Lighthouse">
+    <a class="brand" href="#/overview"><svg class="logo" width="28" height="28" aria-hidden="true"><use href="/static/lighthouse.svg#mark"/></svg>
+      <span><b>Lighthouse</b><span class="tag">Proven fixes across the fleet</span></span></a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#/overview" data-page="overview"><svg aria-hidden="true"><use href="#i-dash"/></svg><span>Overview</span></a>
+      <a href="#/advisories" data-page="advisories"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Advisories</span></a>
+      <a href="#/approvals" data-page="approvals"><svg aria-hidden="true"><use href="#i-check"/></svg><span>Approvals</span><span class="badge" id="badge" hidden></span></a>
+      <a href="#/fleet" data-page="fleet"><svg aria-hidden="true"><use href="#i-server"/></svg><span>Fleet</span></a>
+      <a href="#/audit" data-page="audit"><svg aria-hidden="true"><use href="#i-scroll"/></svg><span>Audit log</span></a>
+      <a href="/settings"><svg aria-hidden="true"><use href="#i-sliders"/></svg><span>Settings</span></a>
     </nav>
     <div class="side-foot">
-      <div class="small" id="me"></div>
-      <div class="small" id="llm"></div>
-      <button id="signout">Sign out</button>
+      <div class="who"><span class="avatar" id="avatar" aria-hidden="true">?</span><span id="me"></span><button id="signout" class="linkish">Sign out</button></div>
+      <div class="llm" id="llm"></div>
     </div>
   </aside>
-  <div>
+  <div class="main">
     <div class="top">
       <h1 id="title">Overview</h1>
       <span id="sovereign"></span>
       <div class="right">
+        <details class="menu" id="demo" hidden><summary>Demo scenarios</summary><div class="menu-list" id="demo-list"></div></details>
         <form class="add-adv act-only" id="add-advisory" title="Fetch an advisory from OSV by id and run it">
-          <input type="search" id="advisory-id" placeholder="CVE-… or GHSA-…" aria-label="Advisory id"><button type="submit">Add advisory</button></form>
-        <details class="menu" id="demo" hidden><summary>Demo ▾</summary><div class="menu-list" id="demo-list"></div></details>
-        <button id="probe" class="act-only" title="Run the safe exploit check for every known advisory on every workload">Run exploit checks</button>
+          <input type="search" id="advisory-id" placeholder="Paste a CVE or GHSA id" aria-label="Advisory id"><button type="submit">Add advisory</button></form>
         <button id="refresh" title="Ask every environment for its workloads again">Rediscover</button>
+        <button id="probe" class="act-only dark" title="Run the safe exploit check for every known advisory on every workload">Run exploit checks</button>
       </div>
     </div>
-    <div class="conn" id="conn" hidden>Can't reach the PatchPilot agent. Retrying…</div>
+    <div class="conn" id="conn" hidden>Can't reach the Lighthouse agent. Retrying…</div>
     <main id="page"></main>
   </div>
 </div>
@@ -205,6 +72,15 @@ dialog p { margin: 0 0 16px; }
 <dialog id="confirm"><p id="confirm-text"></p><div class="btns" style="justify-content:flex-end">
   <button id="confirm-no">Cancel</button><button class="primary" id="confirm-yes">Confirm</button></div></dialog>
 <div class="toasts" id="toasts"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></symbol>
+  <symbol id="i-scroll" viewBox="0 0 24 24"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h4"/><path d="M12 12h8"/><circle cx="10" cy="12" r="2"/><path d="M4 18h12"/><circle cx="18" cy="18" r="2"/></symbol>
+</svg>
 
 <script>
 const $ = (s) => document.querySelector(s);
@@ -246,7 +122,7 @@ function signedIn() { $("#login").hidden = true; $("#app").hidden = false; }
 const WAITING = ["awaiting_approval", "queued"];
 const STATUS = {
   matched: ["c-grey", "Found", "Affected workload found; assessment pending"],
-  running: ["c-blue", "In progress", "PatchPilot is working on it"],
+  running: ["c-blue", "In progress", "Lighthouse is working on it"],
   awaiting_approval: ["c-amber", "Needs approval", "Waiting for a human to approve or reject"],
   queued: ["c-grey", "Scheduled", "Scheduled for the next maintenance window; you can act now"],
   done: ["c-green", "Resolved", "Fixed or shielded, with proof"],
@@ -289,12 +165,12 @@ const ago = (ts) => {
     : new Date(ts * 1000).toLocaleDateString();
 };
 const tag = (image) => image.split("/").pop();
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n, word, many) => `${n} ${n === 1 ? word : (many || word + "s")}`;
 const pkg = (c) => (c.group ? c.group + ":" : "") + c.name;
 
 // ----------------------------------------------------------------- state
 const S = { fleet: null, runs: [], scenarios: [], details: new Map(), approvals: [], audit: [] };
-const view = { run: null, item: linked.get("item") ? Number(linked.get("item")) : null, tab: "decisions", filter: "", followAfter: null };
+const view = { run: null, item: linked.get("item") ? Number(linked.get("item")) : null, tab: "decisions", filter: "", followAfter: null, sel: null, only: false };
 const PAGES = { overview: "Overview", advisories: "Advisories", approvals: "Approvals", fleet: "Fleet", audit: "Audit log" };
 const route = () => {
   const [, name, arg] = location.hash.replace(/^#/, "").split("/");
@@ -404,18 +280,25 @@ function envCard(env, wls) {
 }
 
 function emptyAdvisories() {
-  return `<div class="empty">No advisories yet. PatchPilot picks up every advisory that lands in the feed and decides what to do for each affected workload.
+  return `<div class="empty">No advisories yet. Lighthouse picks up every advisory that lands in the feed and decides what to do for each affected workload.
     ${me.mayAct ? "Add one by id (CVE-… or GHSA-…) at the top" + (S.fleet?.demo ? ", or pick a scenario from the Demo menu." : ".") : ""}</div>`;
 }
 
 // ----------------------------------------------------------------- pages
 const SKELETON = {
-  overview: `<div class="kpis" id="kpis"></div>
+  overview: `<section class="hero" aria-live="polite"><h1 id="ov-head"></h1><p id="ov-sum"></p></section>
+    <div id="ov-intro"></div>
+    <div class="kpis" id="kpis"></div>
+    <section class="mapcard" aria-labelledby="map-title">
+      <div class="map-top"><div><h2 id="map-title">Service map</h2>
+        <p>Drawn from what Lighthouse discovers in each environment. Click a service to see what is happening there. Red lines are paths an attacker on the internet can reach.</p></div>
+        <div class="map-tools" id="map-tools"></div></div>
+      <div id="map-body"></div>
+    </section>
     <div class="grid2">
-      <section><div class="sec-head"><h2>Needs your decision</h2><a href="#/approvals" class="small">All approvals →</a></div><div id="ov-appr" class="items"></div></section>
-      <section><div class="sec-head"><h2>Latest advisories</h2><a href="#/advisories" class="small">All advisories →</a></div><div id="ov-runs"></div></section>
-    </div>
-    <section><div class="sec-head"><h2>Environments</h2><a href="#/fleet" class="small">Fleet →</a></div><div id="ov-envs" class="envs"></div></section>`,
+      <section id="approvals-box"><div class="sec-head"><h2>Needs your decision</h2><a href="#/approvals">All approvals →</a></div><div id="ov-appr" class="items"></div></section>
+      <section><div class="sec-head"><h2>What Lighthouse did</h2><a href="#/advisories">All advisories →</a></div><ol class="act" id="ov-act"></ol></section>
+    </div>`,
   advisories: `<div class="cols"><section><h2>Advisories</h2><div id="adv-list"></div></section>
     <section><div id="adv-head"></div><div class="tabs" id="adv-tabs"></div><div id="adv-body"></div></section></div>`,
   approvals: `<div id="appr" class="items"></div>`,
@@ -424,29 +307,232 @@ const SKELETON = {
     <section><div class="sec-head"><h2>Workloads</h2><input type="search" id="fl-filter" placeholder="Filter by name, environment, image…"></div><div id="fl-table"></div></section>`,
 };
 
+// ------------------------------------------------------- service map
+// Each workload's state on the map comes from its most urgent item across the advisory runs,
+// plus the latest exploit check. Fill, border style and label all differ per state.
+const MAP_STATE = { matched: "found", running: "progress", awaiting_approval: "approval", queued: "scheduled", proposed: "proposed",
+                    done: "resolved", blocked: "failed", failed: "failed", rolled_back: "failed", escalated: "failed", ignored: "ignored" };
+const MAP_URG = { approval: 0, exploit: 1, failed: 2, found: 3, progress: 4, proposed: 5, scheduled: 5, shielded: 6, resolved: 7, ignored: 8, safe: 9 };
+const MAP_PILL = { safe: "Safe", found: "Found · checking", exploit: "Exploitable", progress: "In progress", approval: "Needs approval",
+                   scheduled: "Scheduled", proposed: "Fix proposed", shielded: "Shielded", resolved: "Resolved · proven", ignored: "No action needed" };
+const MAP_TEXT = {
+  safe: "No open advisory affects this service.",
+  found: "An open advisory names a package this service ships. Lighthouse is checking whether it can really be attacked before it changes anything.",
+  exploitX: "The exploit check worked from the internet. Policy acts straight away on internet-facing services.",
+  exploitI: "The exploit check worked from inside the network. Internal services wait for the maintenance window unless you act.",
+  progress: "Lighthouse is building the fix, testing it on a canary or rolling it out. Any failed step rolls back on its own.",
+  approval: "A fix is ready. Policy needs a person to approve it before it goes out.",
+  scheduled: "Scheduled for the next maintenance window. You can do it now.",
+  proposed: "Verified on a canary. A pull request waits for your team's CI/CD to roll it out.",
+  failed: "The action did not complete, so production was left as it was. Someone needs to look.",
+  shielded: "A gateway rule blocks the attack while a real fix is not possible.",
+  resolved: "Fixed, and the same exploit no longer works.",
+  resolvedRescan: "Fixed. There is no exploit check for this advisory, so the proof is a re-scan of the new image plus a health check.",
+  ignored: "The vulnerable code is not reachable here, so no action is needed.",
+};
+const MAP_NEXT = { safe: "Nothing to do", found: "Exploit check", exploit: "Build and review a fix", progress: "Roll out, then prove it",
+                   approval: "Your decision", scheduled: "Maintenance window", proposed: "Merge the pull request", failed: "Someone needs to look",
+                   shielded: "Replace the rule with a real fix", resolved: "Done", ignored: "Nothing to do" };
+const INTRO_KEY = "lh-intro-hidden";
+const introHidden = () => { try { return localStorage.getItem(INTRO_KEY) === "1"; } catch { return false; } };
+
+function workloadStates() {
+  const f = S.fleet, out = new Map();
+  for (const w of f.workloads) {
+    let best = null;
+    for (const r of S.runs) for (const i of r.items) {
+      if (i.workload_id !== w.id) continue;
+      const full = S.details.get(r.id)?.items.find((x) => x.id === i.id) || null;
+      let st = MAP_STATE[i.status] || "progress";
+      if (st === "resolved" && full?.decision?.action === "mitigate") st = "shielded";
+      const cand = { st, status: i.status, run: r, full };
+      if (!best || MAP_URG[st] < MAP_URG[best.st] || (MAP_URG[st] === MAP_URG[best.st] && r.id > best.run.id)) best = cand;
+    }
+    const vulnerable = w.probes.some((p) => p.result === "VULNERABLE");
+    if (!best) best = { st: vulnerable ? "exploit" : "safe", status: null, run: null, full: null };
+    else if (vulnerable && best.st === "found") best.st = "exploit";
+    const fixed = ["resolved", "shielded", "ignored", "safe"].includes(best.st);
+    best.hot = w.internet_exposed && vulnerable && !fixed;
+    best.rescan = best.st === "resolved" && best.full?.proof?.level === "re-scan + health";
+    best.pill = best.st === "failed" ? (STATUS[best.status]?.[1] || "Failed") : best.rescan ? "Resolved · verified" : MAP_PILL[best.st];
+    out.set(w.id, best);
+  }
+  return out;
+}
+
+function mapLayout(states) {
+  const f = S.fleet;
+  const gatewayNames = new Set(f.workloads.map((w) => w.gateway).filter(Boolean));
+  const services = f.workloads.filter((w) => !gatewayNames.has(w.name));
+  const visible = view.only ? services.filter((w) => !["safe", "ignored"].includes(states.get(w.id).st)) : services;
+  const urg = (a, b) => MAP_URG[states.get(a.id).st] - MAP_URG[states.get(b.id).st] || a.name.localeCompare(b.name);
+  const C1 = 400, C2 = 616, NW = 168, ROW = 92, LIM = 4, LINE = "#5A574C", HOT = "#F0624D";
+  const L = { bands: [], nodes: [], gws: [], more: [], segs: [], hot: [], heads: [], hiddenEnvs: 0, hiddenSafe: services.length - visible.length };
+  const H = (x1, x2, y, c, hot) => (hot ? L.hot : L.segs).push(`left:${Math.min(x1, x2)}px;top:${y - 1}px;width:${Math.abs(x2 - x1)}px;height:0;border-top:2px solid ${c}`);
+  const V = (x, y1, y2, c, hot) => { if (y1 !== y2) (hot ? L.hot : L.segs).push(`left:${x - 1}px;top:${Math.min(y1, y2)}px;width:0;height:${Math.abs(y2 - y1)}px;border-left:2px solid ${c}`); };
+  const head = (x, y, c) => L.heads.push(`left:${x - 6}px;top:${y - 4}px;border-left:6px solid ${c}`);
+  let y = 20;
+  for (const env of f.environments) {
+    const all = services.filter((w) => w.target === env.name);
+    const ws = visible.filter((w) => w.target === env.name);
+    if (!ws.length && !env.error) continue;
+    const exp = ws.filter((w) => w.internet_exposed).sort(urg), int = ws.filter((w) => !w.internet_exposed).sort(urg);
+    const expShown = exp.slice(0, LIM), intShown = int.slice(0, LIM);
+    const rows = Math.max(expShown.length, intShown.length, 1);
+    const extra = [[exp.slice(LIM), C1], [int.slice(LIM), C2]].filter(([rest]) => rest.length);
+    const top = y, rowsTop = top + 40, pos = {};
+    const place = (w, x, yy) => { pos[w.id] = yy + 38; L.nodes.push({ w, x, y: yy, s: states.get(w.id) }); };
+    expShown.forEach((w, i) => place(w, C1, rowsTop + i * ROW));
+    intShown.forEach((w, i) => place(w, C2, rowsTop + i * ROW));
+    for (const [rest, x] of extra) L.more.push({ x, y: rowsTop + rows * ROW - 8, text: `+${rest.length} more${rest.every((w) => ["safe", "ignored"].includes(states.get(w.id).st)) ? ", all safe" : ""}` });
+    const h = 40 + rows * ROW + 4 + (extra.length ? 40 : 0);
+    L.bands.push({ env, top, h, count: all.length });
+    if (expShown.length) {
+      const cys = expShown.map((w) => pos[w.id]);
+      const gcy = Math.round((cys[0] + cys[cys.length - 1]) / 2);
+      const names = [...new Set(exp.map((w) => w.gateway).filter(Boolean))];
+      L.gws.push({ env, cy: gcy, hot: expShown.some((w) => states.get(w.id).hot), shield: exp.some((w) => states.get(w.id).st === "shielded"), names });
+      for (const w of expShown) {
+        const hot = states.get(w.id).hot, c = hot ? HOT : LINE, cy = pos[w.id];
+        H(350, 375, gcy, c, hot); V(375, gcy, cy, c, hot); H(375, 399, cy, c, hot); head(399, cy, c);
+      }
+    }
+    y = top + h + 24;
+  }
+  L.height = Math.max(y - 4, 160);
+  if (L.gws.length) {
+    const icy = Math.round((L.gws[0].cy + L.gws[L.gws.length - 1].cy) / 2), anyHot = L.gws.some((g) => g.hot);
+    L.inetY = icy - 38;
+    H(144, 172, icy, anyHot ? HOT : LINE, anyHot);
+    const ys = L.gws.map((g) => g.cy).concat(icy);
+    V(172, Math.min(...ys), Math.max(...ys), LINE, false);
+    for (const g of L.gws) { const c = g.hot ? HOT : LINE; if (g.hot) V(172, icy, g.cy, HOT, true); H(172, 199, g.cy, c, g.hot); head(199, g.cy, c); }
+  }
+  return L;
+}
+
+function mapDetail(states, L) {
+  const f = S.fleet, sel = view.sel;
+  const envOf = (name) => f.environments.find((e) => e.name === name) || { label: name, provider: "" };
+  if (sel === "inet") return `<span class="where">Outside your network</span><span class="nm">Internet</span>
+    <p>Anyone on the internet. Lines from here show which services an outsider can reach through a gateway.</p>`;
+  if (sel?.startsWith("gw:")) {
+    const g = L.gws.find((x) => "gw:" + x.env.name === sel);
+    if (!g) return "";
+    return `<span class="where">${esc(g.env.label)} · ${esc(g.env.provider || g.env.kind)}</span><span class="nm">gateway</span>
+      <span><span class="pill ${g.shield ? "rule" : ""}">${g.shield ? "Rule active" : "No rule needed"}</span></span>
+      <p>${g.shield ? "A virtual patch is active here: a rule that blocks the attack in front of the service." : "Routes public traffic to the internet-facing services in this environment. If a fix is blocked, Lighthouse can add a rule here that stops the attack. That always needs approval."}</p>
+      ${g.names.length ? `<dl><dt>Gateways</dt><dd class="mono">${g.names.map(esc).join(", ")}</dd></dl>` : ""}`;
+  }
+  const w = f.workloads.find((x) => x.id === sel);
+  if (!w) return `<p>Select a service on the map.</p>`;
+  const s = states.get(w.id), env = envOf(w.target), it = s.full;
+  const key = s.st === "exploit" ? (w.internet_exposed ? "exploitX" : "exploitI") : s.rescan ? "resolvedRescan" : s.st;
+  const text = (s.st === "failed" && (it?.outcome || STATUS[s.status]?.[2])) || MAP_TEXT[key];
+  const withWl = it ? { ...it, workload: it.workload || w } : null;
+  return `<span class="where">${esc(env.label)} · ${esc(env.provider || env.kind)}</span><span class="nm">${esc(w.name)}</span>
+    <span><span class="pillwrap s-${s.st}"><span class="pill">${esc(s.pill)}</span></span></span>
+    <p>${esc(text)}</p>
+    <dl>
+      <dt>Advisory</dt><dd>${s.run ? `<a href="#/advisories/${s.run.id}">${esc(s.run.title)}</a>` : "None open"}</dd>
+      ${it?.component ? `<dt>Package</dt><dd class="mono" style="font-size:12px">${esc(pkg(it.component))} ${esc(it.component.version)}${it.fixed_version ? " → " + esc(it.fixed_version) : ""}</dd>` : ""}
+      <dt>Image</dt><dd class="mono" style="font-size:12px">${esc(tag(w.image))}</dd>
+      <dt>Reachable</dt><dd>${esc(w.exposure || (w.internet_exposed ? "Internet" : "Internal only"))}</dd>
+      <dt>Exploit check</dt><dd>${w.probes.length ? w.probes.map((p) => esc(`${p.probe}: ${PROBE[p.result] || p.result}`)).join("<br>") : "Not run"}</dd>
+      <dt>Next</dt><dd>${MAP_NEXT[s.st]}</dd>
+    </dl>
+    ${withWl ? itemButtons(withWl) : ""}`;
+}
+
+function renderMap(states) {
+  const f = S.fleet, L = mapLayout(states);
+  if (!f.workloads.length) {
+    set("map-tools", "");
+    set("map-body", `<div class="map-empty"><div><b>No services yet</b><p class="muted" style="color:#CFCBBE;margin:6px 0 0">Lighthouse draws this map from the clusters and Docker hosts it is pointed at.${f.environments.some((e) => e.error) ? " Some environments could not be reached: " + f.environments.filter((e) => e.error).map((e) => esc(e.label)).join(", ") + "." : ""}</p></div>
+      <ol><li><b>1. List where code lives and runs</b>Add your repositories as <code>sources</code> and your clusters or hosts as <code>targets</code> in fleet.yaml.</li>
+        <li><b>2. Check the setup</b>Run <code>uv run python -m agent.doctor</code>. It lists what is still missing, piece by piece.</li>
+        <li><b>3. Discover</b>Press Rediscover at the top. Lighthouse asks every environment for its workloads.</li></ol></div>`);
+    return;
+  }
+  const openAdv = S.runs.filter((r) => r.items.some((i) => !["done", "ignored"].includes(i.status))).length;
+  set("map-tools", `<span class="live"><span class="dot"></span>Live · ${plural(openAdv, "open advisory", "open advisories")}</span>
+    <button class="toggle" id="only-affected" aria-pressed="${view.only}">Only affected services</button>`);
+  const node = (n) => `<button class="node s-${n.s.st}${view.sel === n.w.id ? " sel" : ""}" data-node="${esc(n.w.id)}" style="left:${n.x}px;top:${n.y}px"
+      aria-label="${esc(n.w.name)}: ${esc(n.s.pill)}"><span class="nm">${esc(n.w.name)}</span><span class="mt">${n.w.internet_exposed ? "internet-facing" : "internal"} · ${esc(tag(n.w.image))}</span><span class="pill">${esc(n.s.pill)}</span></button>`;
+  const host = `<div class="map-host" style="height:${L.height}px">
+    ${L.bands.map((b) => `<div class="band" style="top:${b.top}px;height:${b.h}px"></div>
+      <div class="band-label" style="top:${b.top + 12}px"><b>${esc(b.env.label)}</b> · ${esc(b.env.provider || b.env.kind)} · ${plural(b.count, "service")}${b.env.error ? ` · <span class="bad">unreachable</span>` : ""}</div>`).join("")}
+    ${L.segs.concat(L.hot).map((s) => `<div class="seg" aria-hidden="true" style="${s}"></div>`).join("")}
+    ${L.heads.map((s) => `<div class="head" aria-hidden="true" style="${s}"></div>`).join("")}
+    ${L.gws.length ? `<button class="node inet${view.sel === "inet" ? " sel" : ""}" data-node="inet" style="left:24px;top:${L.inetY}px" aria-label="The internet"><span class="nm" style="font-family:var(--sans);font-weight:600">Internet</span><span class="mt">anyone outside</span></button>` : ""}
+    ${L.gws.map((g) => `<button class="node gw${view.sel === "gw:" + g.env.name ? " sel" : ""}" data-node="gw:${esc(g.env.name)}" style="left:200px;top:${g.cy - 38}px" aria-label="Gateway for ${esc(g.env.label)}">
+      <span class="nm">gateway</span><span class="mt">routes public traffic</span><span class="pill ${g.shield ? "rule" : ""}">${g.shield ? "Rule active" : "No rule needed"}</span></button>`).join("")}
+    ${L.nodes.map(node).join("")}
+    ${L.more.map((m) => `<a class="more" href="#/fleet" style="left:${m.x}px;top:${m.y}px">${esc(m.text)}</a>`).join("")}
+  </div>`;
+  const hidden = view.only && L.hiddenSafe ? `<p class="small" style="color:#A39E8E;margin:0;padding:0 16px 16px">Hiding ${plural(L.hiddenSafe, "safe service")}.</p>` : "";
+  const legend = [["", "Safe"], ["found", "Found · checking"], ["exploit", "Exploitable"], ["progress", "In progress"], ["approval", "Needs approval"],
+    ["scheduled", "Scheduled"], ["failed", "Failed or rolled back"], ["proposed", "Fix proposed"], ["shielded", "Shielded"], ["resolved", "Resolved · proven or verified"], ["hot", "Reachable from the internet"]]
+    .map(([k, t]) => `<li><i class="${k ? "l-" + k : ""}"></i>${t}</li>`).join("");
+  set("map-body", `<div class="map-row"><div class="map-scroll">${host}${hidden}</div><aside class="map-detail" aria-label="Selected service" aria-live="polite">${mapDetail(states, L)}</aside></div>
+    <ul class="legend" aria-label="Legend">${legend}</ul>`);
+}
+
 function renderOverview() {
-  const f = S.fleet, wls = f.workloads, envs = f.environments;
-  const exploitable = wls.filter((w) => w.probes.some((p) => p.result === "VULNERABLE")).length;
-  const probed = wls.some((w) => w.probes.length);
-  const items = S.runs.flatMap((r) => r.items);
-  const needs = items.filter((i) => i.status === "awaiting_approval").length, sched = items.filter((i) => i.status === "queued").length;
-  const resolved = items.filter((i) => i.status === "done").length, proposed = items.filter((i) => i.status === "proposed").length;
-  const down = envs.filter((e) => e.error).length;
-  const kpi = (href, tone, v, label, sub) => `<a class="kpi ${tone}" href="${href}"><div class="kpi-v">${v}</div><div class="kpi-l">${label}</div><div class="small">${sub}</div></a>`;
+  const f = S.fleet, states = workloadStates();
+  const gatewayNames = new Set(f.workloads.map((w) => w.gateway).filter(Boolean));
+  const services = f.workloads.filter((w) => !gatewayNames.has(w.name));
+  if (!view.sel || (view.sel !== "inet" && !view.sel.startsWith("gw:") && !services.some((w) => w.id === view.sel))) {
+    view.sel = services.slice().sort((a, b) => MAP_URG[states.get(a.id).st] - MAP_URG[states.get(b.id).st])[0]?.id || null;
+  }
+  const count = (...sts) => services.filter((w) => sts.includes(states.get(w.id).st)).length;
+  const n = services.length, affected = n - count("safe", "ignored");
+  const waiting = count("approval"), exploit = count("exploit"), failed = count("failed"), working = count("progress", "found");
+  const fixed = count("resolved", "shielded"), verified = services.filter((w) => states.get(w.id).rescan).length;
+  const advN = S.runs.filter((r) => r.items.some((i) => !["done", "ignored"].includes(i.status))).length;
+  const down = f.environments.filter((e) => e.error).length;
+
+  let head, sum;
+  if (!n) { head = "Let's find your services"; sum = "Lighthouse hasn't discovered anything yet. Point it at your clusters or Docker hosts and it will draw every service here."; }
+  else if (!affected) { head = `All ${plural(n, "service")} are safe`; sum = "No open advisory affects your fleet. Lighthouse keeps watching the advisory feeds and will show anything new on the map."; }
+  else {
+    head = waiting ? `${plural(waiting, "decision needs", "decisions need")} you` : exploit ? `${plural(exploit, "service")} can be attacked`
+      : failed ? `${plural(failed, "fix", "fixes")} need a look` : working ? `Lighthouse is working on ${plural(working, "service")}` : "Every affected service is handled";
+    const parts = [`${affected} of your ${n} services ${affected === 1 ? "is" : "are"} affected${advN ? ` by ${plural(advN, "open advisory", "open advisories")}` : ""}.`];
+    if (exploit) parts.push(`${exploit} can be attacked right now; Lighthouse acts on its own where policy allows.`);
+    if (waiting) parts.push(`${plural(waiting, "fix is", "fixes are")} waiting for your OK.`);
+    if (failed) parts.push(`${plural(failed, "action")} did not complete.`);
+    if (fixed) parts.push(`${fixed} already fixed or shielded, with proof.`);
+    sum = parts.join(" ");
+  }
+  if (down) sum += ` ${plural(down, "environment")} could not be reached.`;
+  set("ov-head", esc(head)); set("ov-sum", esc(sum));
+
+  set("ov-intro", introHidden() ? "" : `<section class="intro"><div class="intro-head"><h2>New here? This is what Lighthouse does with every advisory</h2><button id="hide-intro">Got it, hide this</button></div>
+    <ol class="steps4"><li><span class="n">1</span><span><b>Watch</b><span class="d">Reads the advisory feeds and finds every service that ships the affected package.</span></span></li>
+      <li><span class="n">2</span><span><b>Check</b><span class="d">Sends a harmless test request to see if the service can really be attacked.</span></span></li>
+      <li><span class="n">3</span><span><b>Fix</b><span class="d">Upgrades the package, reviews the change, tries it on a canary. Asks you when policy says so.</span></span></li>
+      <li><span class="n">4</span><span><b>Prove</b><span class="d">Re-runs the attack where an exploit check exists; otherwise re-scans the new image and checks its health.</span></span></li></ol></section>`);
+
+  const kpi = (href, tone, label, v, sub) => `<a class="kpi ${tone}" href="${href}"><span class="kpi-l">${label}</span><span class="kpi-v">${v}</span><span class="small">${sub}</span></a>`;
   set("kpis", [
-    kpi("#/fleet", down ? "amber" : "", wls.length, "Workloads", `across ${plural(envs.length, "environment")}${down ? ` · ${down} unreachable` : ""}`),
-    kpi("#/fleet", "", wls.filter((w) => w.internet_exposed).length, "Internet-facing", "reachable from outside"),
-    kpi("#/fleet", exploitable ? "red" : probed ? "green" : "", exploitable, "Exploitable now", probed ? "from the latest exploit checks" : "no exploit checks run yet"),
-    kpi("#/approvals", needs ? "amber" : "", needs, "Waiting for you", sched ? `plus ${sched} scheduled for maintenance` : "approvals and rejections"),
-    kpi("#/advisories", resolved ? "green" : "", resolved, "Resolved", proposed ? `plus ${proposed} ${proposed === 1 ? "fix" : "fixes"} proposed for review` : `across ${S.runs.length} ${S.runs.length === 1 ? "advisory" : "advisories"}`),
+    kpi("#/fleet", "", "Services watched", n || "—", n ? `across ${plural(f.environments.length, "environment")}${down ? ` · ${down} unreachable` : ""}` : "none discovered yet"),
+    kpi("#/advisories", exploit ? "red" : "", "Affected by an open advisory", n ? affected : "—", exploit ? `${exploit} exploitable right now` : advN ? `by ${plural(advN, "open advisory", "open advisories")}` : "no open advisories"),
+    kpi("#/advisories", fixed ? "green" : "", "Fixed or shielded, with proof", n ? fixed : "—", !fixed ? "nothing fixed yet" : verified ? `${fixed - verified} by exploit re-run, ${verified} by re-scan` : "the exploit was re-run and failed"),
+    kpi("#/approvals", waiting ? "beam" : "", "Waiting on you", waiting, waiting ? S.approvals.filter((a) => a.status === "awaiting_approval").slice(0, 3).map((a) => a.workload.name).join(", ") : "nothing to decide"),
   ].join(""));
-  set("ov-appr", S.approvals.slice(0, 4).map(approvalRow).join("")
-    || `<div class="empty">Nothing is waiting for you. Fixes that need a human show up here.</div>`);
-  set("ov-runs", S.runs.length ? `<div class="table-wrap"><table><thead><tr><th>Advisory</th><th>Severity</th><th>Status</th><th class="hide-sm">Workloads</th><th class="hide-sm">Started</th></tr></thead><tbody>
-    ${S.runs.slice(0, 8).map((r) => `<tr class="link" data-href="#/advisories/${r.id}"><td><b>${esc(r.title)}</b></td><td>${sevChip(r.severity)}</td>
-      <td>${statusChip(r.status)}</td><td class="hide-sm">${r.items.length}</td><td class="hide-sm small">${ago(r.started)}</td></tr>`).join("")}
-    </tbody></table></div>` : emptyAdvisories());
-  set("ov-envs", envs.map((e) => envCard(e, wls.filter((w) => w.target === e.name))).join("") || `<div class="empty">No environments in fleet.yaml</div>`);
+
+  renderMap(states);
+
+  set("ov-appr", S.approvals.slice(0, 3).map(approvalCard).join("")
+    || `<div class="empty"><b style="color:var(--ink)">Nothing needs you right now.</b><br>When policy says a person has to decide, the decision shows up here with the evidence next to it.</div>`);
+
+  const evs = [...S.details.values()].flatMap((d) => d.events.map((e) => ({ ...e, run: d.run })))
+    .filter((e) => ["ok", "fail", "warn", "ai", "pending"].includes(e.status) || e.step === "summary")
+    .sort((a, b) => b.ts - a.ts || b.id - a.id).slice(0, 8);
+  set("ov-act", evs.map((e) => `<li><span class="t">${time(e.ts)}</span><span class="d ${esc(e.status)}"></span>
+      <span><b>${esc(STEP[e.step] || e.step)}</b> · <a href="#/advisories/${e.run.id}">${esc(e.run.title)}</a><br><span class="small">${esc(e.title)}</span></span></li>`).join("")
+    || `<li style="display:block;color:var(--muted)">${n ? "Quiet. Lighthouse is watching the advisory feeds." : "Nothing yet. Activity shows up here once Lighthouse has services to watch."}${me.mayAct && S.fleet.demo ? " Try a scenario from Demo scenarios at the top." : ""}</li>`);
 }
 
 function renderAdvisories() {
@@ -457,7 +543,7 @@ function renderAdvisories() {
       <div class="small">${ago(x.started)} · ${plural(x.items.length, "workload")}</div></a>`).join("") || emptyAdvisories());
   const detail = S.details.get(view.run);
   if (!detail) {
-    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what PatchPilot decided for each workload.</div>`);
+    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what Lighthouse decided for each workload.</div>`);
     set("adv-tabs", ""); set("adv-body", "");
     return;
   }
@@ -516,7 +602,7 @@ function render() {
   if (page !== r.name) { page = r.name; last.clear(); $("#page").innerHTML = SKELETON[r.name]; if (r.name === "fleet") $("#fl-filter").value = view.filter; }
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === r.name));
   $("#title").textContent = PAGES[r.name];
-  document.title = `${PAGES[r.name]} · PatchPilot`;
+  document.title = `${PAGES[r.name]} · Lighthouse`;
   const needs = S.approvals.filter((a) => a.status === "awaiting_approval").length;
   $("#badge").hidden = !needs; $("#badge").textContent = needs;
   const llm = S.fleet.llm;
@@ -527,7 +613,8 @@ function render() {
   $("#demo").hidden = !S.fleet.demo || !me.mayAct;
   document.querySelectorAll(".act-only").forEach((el) => { el.hidden = !me.mayAct; });
   $("#signout").hidden = me.auth !== "token";
-  set("me", me.auth === "none" ? "No login (demo)" : `Signed in as <b>${esc(me.user)}</b>${me.mayAct ? "" : " · view only"}`);
+  set("me", me.auth === "none" ? "No login (demo)" : `<b>${esc(me.user)}</b><span class="small">${me.mayAct ? "Can approve" : "View only"}</span>`);
+  $("#avatar").textContent = (me.user || "?").slice(0, 1);
   set("demo-list", S.scenarios.map((s) => `<button data-scenario="${esc(s.name)}"><b>${esc(s.title)}${s.triggered ? " · already run" : ""}</b><span class="small">${esc(s.summary)}</span></button>`).join("")
     + `<div class="small">Scenarios publish a canned advisory into the feed. Reset with scripts/reset_demo.sh.</div>`);
   if (r.name === "advisories" && view.item && !view.scrolled) {
@@ -557,6 +644,7 @@ async function tick() {
     S.audit = route().name === "audit" ? await api("/api/audit") : S.audit;
     const want = new Set(runs.filter((x) => x.items.some((i) => WAITING.includes(i.status))).map((x) => x.id));
     if (r.name === "advisories" && view.run !== null) want.add(view.run);
+    if (r.name === "overview") runs.slice(0, 6).forEach((x) => want.add(x.id));   // map states and activity
     const fetched = await Promise.all([...want].map((id) => api(`/api/runs/${id}`)));
     S.details = new Map(fetched.map((d) => [d.run.id, d]));
     const sev = Object.fromEntries(runs.map((x) => [x.id, x.severity]));
@@ -592,6 +680,13 @@ function confirmDialog(text, yes) {
   });
 }
 
+document.addEventListener("click", (ev) => {       // service map: select a node, filter, hide the intro
+  const n = ev.target.closest("[data-node]");
+  if (n) { view.sel = n.dataset.node; render(); return; }
+  if (ev.target.closest("#only-affected")) { view.only = !view.only; render(); return; }
+  if (ev.target.closest("#hide-intro")) { try { localStorage.setItem(INTRO_KEY, "1"); } catch {} render(); }
+});
+
 document.addEventListener("click", async (ev) => {
   const row = ev.target.closest("tr[data-href]");
   if (row && !ev.target.closest("a,button")) { location.hash = row.dataset.href; return; }
@@ -603,7 +698,7 @@ document.addEventListener("click", async (ev) => {
       $("#demo").open = false;
       const res = await api(`/api/scenarios/${el.dataset.scenario}`, { method: "POST" });
       view.followAfter = S.runs[0]?.id ?? 0;
-      toast(`Published ${res.advisory} to the feed. PatchPilot is on it.`);
+      toast(`Published ${res.advisory} to the feed. Lighthouse is on it.`);
       location.hash = "#/advisories";
     } else if (el.dataset.approve) {
       el.disabled = true;
@@ -665,7 +760,7 @@ $("#add-advisory").addEventListener("submit", async (ev) => {
     const res = await api(`/api/advisories/${encodeURIComponent(id)}`, { method: "POST" });
     $("#advisory-id").value = "";
     view.followAfter = S.runs[0]?.id ?? 0;
-    toast(`Fetched ${res.advisory} from OSV. PatchPilot is on it.`);
+    toast(`Fetched ${res.advisory} from OSV. Lighthouse is on it.`);
     location.hash = "#/advisories";
   } catch (e) {
     if (!(e instanceof SignedOut)) toast(e.message, true);
