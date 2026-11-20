@@ -137,18 +137,18 @@ def test_github_source_clones_pushes_and_opens_a_pull_request(remote, tmp_path, 
     src.ensure()                                                 # cloned on first use
     assert (tmp_path / "clone" / "requirements.txt").exists()
 
-    src.start_change("patchpilot/x")
+    src.start_change("lighthouse/x")
     (src.path / "requirements.txt").write_text("acme-textfmt==1.0.1\n")
     src.commit("Bump acme-textfmt")
-    url = src.accept_change("patchpilot/x", "Bump acme-textfmt", "evidence")
+    url = src.accept_change("lighthouse/x", "Bump acme-textfmt", "evidence")
     assert url == "https://github.com/acme/shop/pull/7"
     method, endpoint, body, _, headers = api.calls[0]
     assert (method, endpoint) == ("POST", "https://api.github.com/repos/acme/shop/pulls")
-    assert body == {"title": "Bump acme-textfmt", "head": "patchpilot/x", "base": "main", "body": "evidence"}
+    assert body == {"title": "Bump acme-textfmt", "head": "lighthouse/x", "base": "main", "body": "evidence"}
     assert headers["Authorization"] == "Bearer ghp_secret"
     assert api.calls[1][2] == {"labels": ["security"]}
     # pushed to origin, not merged into main anywhere
-    assert "acme-textfmt==1.0.1" in git(remote, "show", "patchpilot/x:requirements.txt")
+    assert "acme-textfmt==1.0.1" in git(remote, "show", "lighthouse/x:requirements.txt")
     assert "1.0.0" in git(remote, "show", "main:requirements.txt")
     assert "1.0.0" in (src.path / "requirements.txt").read_text()
 

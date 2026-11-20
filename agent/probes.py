@@ -31,7 +31,7 @@ from .schemas import Workload
 
 _lock = threading.Lock()     # probes share the callback listener: run one at a time
 
-MARKER = b"patchpilot probe marker: if you can read this, the key id escaped the key directory\n"
+MARKER = b"lighthouse probe marker: if you can read this, the key id escaped the key directory\n"
 
 
 @dataclass

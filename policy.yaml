@@ -1,6 +1,6 @@
 # Policy gate (agent/policy.py). Validated at startup: an unknown key or value
 # stops the agent. A repository can tighten `patch`, `mitigate` and
-# `not_reachable` in the `policy:` section of its .patchpilot.yaml; it can never
+# `not_reachable` in the `policy:` section of its .lighthouse.yaml; it can never
 # loosen them, and the other keys are fleet-only.
 
 # Patch decision by vet verdict of the fixed version.

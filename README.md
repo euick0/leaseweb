@@ -1,4 +1,4 @@
-# PatchPilot
+# LightHouse
 
 One advisory in, one proven decision per workload out, across a fleet on several clouds. See `PLAN.md` for the why.
 
@@ -37,10 +37,10 @@ Fallback without Kubernetes: `scripts/compose_up.sh`, then `PP_FLEET=fleet.compo
 
 ## For companies: fill in the puzzle pieces
 
-PatchPilot is built from pieces. Everything company-specific is a blank to fill in; nothing in the code changes.
+LightHouse is built from pieces. Everything company-specific is a blank to fill in; nothing in the code changes.
 
 ```
-cp patchpilot.example.yaml patchpilot.yaml   # the pieces: fill in the lines marked FILL IN
+cp lighthouse.example.yaml lighthouse.yaml   # the pieces: fill in the lines marked FILL IN
 cp .env.example .env                         # the secrets (never committed)
 # fleet.yaml: your repositories (sources) and clusters / Docker hosts (targets)
 uv run python -m agent.doctor                # lists what is still missing, piece by piece
@@ -60,7 +60,7 @@ scripts/run_agent.sh
 What each piece does:
 
 - **Login and audit:** every API call needs a user (a token by default, see above). Only `approvers` may approve, reject, trigger or reset, and every such action is kept in an audit log (`/api/audit`) that a demo reset does not clear.
-- **Pull requests, not pushes to main:** with `github` or `gitlab`, the repository is cloned on first use, synced before every change, and a verified fix becomes a pull/merge request carrying the evidence (vet verdict, exploit probe before → after). With `deploy: false`, PatchPilot verifies the fix on a canary and stops there: your pipeline deploys on merge.
+- **Pull requests, not pushes to main:** with `github` or `gitlab`, the repository is cloned on first use, synced before every change, and a verified fix becomes a pull/merge request carrying the evidence (vet verdict, exploit probe before → after). With `deploy: false`, LightHouse verifies the fix on a canary and stops there: your pipeline deploys on merge.
 - **Advisories without copying files:** `osv` checks every package the fleet runs on a schedule. The dashboard's *Add advisory* box takes any CVE or GHSA id.
 - **Notifications:** sent when an approval is waiting or an action fails, with a link straight to the decision.
 
@@ -68,7 +68,7 @@ Missing a piece? Any slot also takes your own class as `kind: "module:Class"`, w
 
 ## Real repositories
 
-PatchPilot works on ordinary projects; the demo's vendored layout is only one of the layouts it reads.
+LightHouse works on ordinary projects; the demo's vendored layout is only one of the layouts it reads.
 
 | Language | Reads | A fix changes | Releases vetted from |
 |----------|-------|---------------|----------------------|
@@ -78,7 +78,7 @@ PatchPilot works on ordinary projects; the demo's vendored layout is only one of
 
 With Syft installed, inventory reads the running image instead (every package, transitive ones included).
 
-Every package a fix moves is vetted first, not just the one in the advisory: the rest of a Maven release train, and the modules `go get` raises (found with a dry run on a copy of go.mod). After the change, PatchPilot compares the repository's packages before and after. If anything moved that was not vetted, the change is abandoned.
+Every package a fix moves is vetted first, not just the one in the advisory: the rest of a Maven release train, and the modules `go get` raises (found with a dry run on a copy of go.mod). After the change, LightHouse compares the repository's packages before and after. If anything moved that was not vetted, the change is abandoned.
 
 A release that cannot be fetched or fully reviewed is `unreviewed`, never patched without a human. Real releases are larger than the demo's, so set `VET_BUDGET_SECONDS` (`.env.example`) to a few minutes. Log4j 2.14.1 → 2.17.1 from Maven Central (125 changed files) takes about 6 minutes with a hosted model and comes out clean.
 
@@ -90,9 +90,9 @@ Not covered yet: Gradle, npm, PHP/Composer, and `[tool.poetry]` dependency table
 
 - **AI model:** the provider chain and its order, the model per provider (listed from the provider), live or cache-only answers, and a connection test. API keys stay in `.env`.
 - **AI permissions:** an autonomy level (recommend only, balanced, autonomous) or each rule of `policy.yaml` on its own. The same validation applies, so a malicious fix can never be automatic; hosted models can only be chosen while `allow_hosted_llm` is on.
-- **Scope:** environments, services, ecosystems and packages PatchPilot leaves alone (no runs, probes or OSV queries for them).
+- **Scope:** environments, services, ecosystems and packages LightHouse leaves alone (no runs, probes or OSV queries for them).
 
-Changes are kept in `state/ui-settings.json` over the files, each section can be reset to the files, and every change is in the audit log (the *Activity* tab). Who may change settings: `auth.admins` in `patchpilot.yaml`, or the approvers when it is not set.
+Changes are kept in `state/ui-settings.json` over the files, each section can be reset to the files, and every change is in the audit log (the *Activity* tab). Who may change settings: `auth.admins` in `lighthouse.yaml`, or the approvers when it is not set.
 
 ## Model providers
 

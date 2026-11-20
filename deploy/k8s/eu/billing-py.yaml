@@ -35,7 +35,7 @@ kind: ConfigMap
 metadata:
   name: billing-py-gateway-conf
   namespace: shop
-  labels: {patchpilot.io/role: gateway}
+  labels: {lighthouse.io/role: gateway}
 data:
   nginx.conf: |
     worker_processes 1;
@@ -61,8 +61,8 @@ kind: Deployment
 metadata:
   name: billing-py-gateway
   namespace: shop
-  labels: {patchpilot.io/role: gateway}
-  annotations: {patchpilot.io/gateway-for: billing-py}
+  labels: {lighthouse.io/role: gateway}
+  annotations: {lighthouse.io/gateway-for: billing-py}
 spec:
   replicas: 1
   selector: {matchLabels: {app: billing-py-gateway}}

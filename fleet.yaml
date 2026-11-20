@@ -1,4 +1,4 @@
-# The fleet PatchPilot manages. Sources are where code lives; targets are
+# The fleet LightHouse manages. Sources are where code lives; targets are
 # where it runs. Workloads are discovered, not listed: an image's OCI source
 # label (set at build time) or its app name links it to a source.
 #

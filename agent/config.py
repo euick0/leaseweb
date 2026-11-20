@@ -1,7 +1,7 @@
 """Runtime configuration. Paths and knobs come from environment variables
 (and `.env`); what the fleet looks like (sources, targets) comes from
 fleet.yaml; the company's pieces (auth, forge, feed, notify) from
-patchpilot.yaml, see agent/settings.py."""
+lighthouse.yaml, see agent/settings.py."""
 from __future__ import annotations
 
 import os
@@ -25,7 +25,7 @@ def load_dotenv(path: Path) -> None:
 
 
 load_dotenv(Path(os.environ.get("PP_ENV_FILE", WORKSPACE / ".env")))
-SETTINGS_FILE = Path(os.environ.get("PP_CONFIG", WORKSPACE / "patchpilot.yaml"))
+SETTINGS_FILE = Path(os.environ.get("PP_CONFIG", WORKSPACE / "lighthouse.yaml"))
 
 ARTIFACTS = WORKSPACE / "artifacts"
 # Recorded when an artifact first enters the store, and kept outside it: whoever can

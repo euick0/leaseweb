@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start PatchPilot (API + dashboard + feed watcher) on 127.0.0.1:8000.
+# Start LightHouse (API + dashboard + feed watcher) on 127.0.0.1:8000.
 #   LLM_MODE=cache scripts/run_agent.sh     # stage safety net: cached model answers only
 #   PP_DEMO=1 scripts/run_agent.sh          # with the demo controls (scenario buttons, reset)
 #   PP_HOST=0.0.0.0 scripts/run_agent.sh    # listen beyond this machine (set PP_API_TOKENS first)

@@ -126,7 +126,7 @@ def test_propose_only_opens_a_pull_request_and_leaves_production_to_ci(demo, mon
     assert orders["proof"]["after"]["via"] == "canary"
     assert "pull/12" in orders["outcome"]
     pr = calls[0][2]
-    assert pr["head"].startswith("patchpilot/") and "VULNERABLE → SAFE" in pr["body"]
+    assert pr["head"].startswith("lighthouse/") and "VULNERABLE → SAFE" in pr["body"]
     assert "2.17.1" in subprocess.run(["git", "show", f"{pr['head']}:vendor.txt"], cwd=bare,
                                       capture_output=True, text=True).stdout
     assert "2.14.1" in git("orders-java", "show", "main:vendor.txt")          # nothing merged
@@ -268,7 +268,7 @@ def test_api_needs_a_token_and_demo_controls_need_the_flag(demo, monkeypatch):
     from agent.main import app
 
     with TestClient(app) as client:
-        assert "PatchPilot" in client.get("/").text                  # the page itself carries no data
+        assert "LightHouse" in client.get("/").text                  # the page itself carries no data
         for method, path in (("get", "/api/fleet"), ("get", "/api/runs"), ("post", "/api/probe"),
                              ("post", "/api/reset"), ("post", "/api/scenarios/zeroday"), ("post", "/api/items/1/approve")):
             assert getattr(client, method)(path).status_code == 401, path
@@ -288,7 +288,7 @@ def test_api_and_dashboard(demo):
     from agent.main import app
 
     with TestClient(app, headers={"Authorization": "Bearer tok-maria"}) as client:
-        assert "PatchPilot" in client.get("/").text
+        assert "LightHouse" in client.get("/").text
         fleet_view = client.get("/api/fleet").json()
         assert {w["name"] for w in fleet_view["workloads"]} == {"orders-java", "reports-java", "billing-py"}
         probed = client.post("/api/probe").json()

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PatchPilot</title>
+<title>LightHouse</title>
 <style>
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #16181d; --muted: #5d6573; --line: #e2e5ea;
@@ -160,7 +160,7 @@ dialog p { margin: 0 0 16px; }
 <body>
 <div class="login" id="login" hidden>
   <form id="login-form">
-    <h1>Sign in to PatchPilot</h1>
+    <h1>Sign in to LightHouse</h1>
     <div class="small">Use your token from <code>PP_API_TOKENS</code>, or the one the agent printed when it started. Approvals are recorded under the name that token belongs to.</div>
     <input type="password" id="login-token" placeholder="API token" autocomplete="current-password" required>
     <div class="err" id="login-err"></div>
@@ -170,7 +170,7 @@ dialog p { margin: 0 0 16px; }
 
 <div class="app" id="app" hidden>
   <aside class="side">
-    <div class="brand">PatchPilot<span class="small">Proven fixes across the fleet</span></div>
+    <div class="brand">LightHouse<span class="small">Proven fixes across the fleet</span></div>
     <nav class="nav">
       <a href="#/overview" data-page="overview">Overview</a>
       <a href="#/advisories" data-page="advisories">Advisories</a>
@@ -197,7 +197,7 @@ dialog p { margin: 0 0 16px; }
         <button id="refresh" title="Ask every environment for its workloads again">Rediscover</button>
       </div>
     </div>
-    <div class="conn" id="conn" hidden>Can't reach the PatchPilot agent. Retrying…</div>
+    <div class="conn" id="conn" hidden>Can't reach the LightHouse agent. Retrying…</div>
     <main id="page"></main>
   </div>
 </div>
@@ -246,7 +246,7 @@ function signedIn() { $("#login").hidden = true; $("#app").hidden = false; }
 const WAITING = ["awaiting_approval", "queued"];
 const STATUS = {
   matched: ["c-grey", "Found", "Affected workload found; assessment pending"],
-  running: ["c-blue", "In progress", "PatchPilot is working on it"],
+  running: ["c-blue", "In progress", "LightHouse is working on it"],
   awaiting_approval: ["c-amber", "Needs approval", "Waiting for a human to approve or reject"],
   queued: ["c-grey", "Scheduled", "Scheduled for the next maintenance window; you can act now"],
   done: ["c-green", "Resolved", "Fixed or shielded, with proof"],
@@ -404,7 +404,7 @@ function envCard(env, wls) {
 }
 
 function emptyAdvisories() {
-  return `<div class="empty">No advisories yet. PatchPilot picks up every advisory that lands in the feed and decides what to do for each affected workload.
+  return `<div class="empty">No advisories yet. LightHouse picks up every advisory that lands in the feed and decides what to do for each affected workload.
     ${me.mayAct ? "Add one by id (CVE-… or GHSA-…) at the top" + (S.fleet?.demo ? ", or pick a scenario from the Demo menu." : ".") : ""}</div>`;
 }
 
@@ -457,7 +457,7 @@ function renderAdvisories() {
       <div class="small">${ago(x.started)} · ${plural(x.items.length, "workload")}</div></a>`).join("") || emptyAdvisories());
   const detail = S.details.get(view.run);
   if (!detail) {
-    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what PatchPilot decided for each workload.</div>`);
+    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what LightHouse decided for each workload.</div>`);
     set("adv-tabs", ""); set("adv-body", "");
     return;
   }
@@ -516,7 +516,7 @@ function render() {
   if (page !== r.name) { page = r.name; last.clear(); $("#page").innerHTML = SKELETON[r.name]; if (r.name === "fleet") $("#fl-filter").value = view.filter; }
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === r.name));
   $("#title").textContent = PAGES[r.name];
-  document.title = `${PAGES[r.name]} · PatchPilot`;
+  document.title = `${PAGES[r.name]} · LightHouse`;
   const needs = S.approvals.filter((a) => a.status === "awaiting_approval").length;
   $("#badge").hidden = !needs; $("#badge").textContent = needs;
   const llm = S.fleet.llm;
@@ -603,7 +603,7 @@ document.addEventListener("click", async (ev) => {
       $("#demo").open = false;
       const res = await api(`/api/scenarios/${el.dataset.scenario}`, { method: "POST" });
       view.followAfter = S.runs[0]?.id ?? 0;
-      toast(`Published ${res.advisory} to the feed. PatchPilot is on it.`);
+      toast(`Published ${res.advisory} to the feed. LightHouse is on it.`);
       location.hash = "#/advisories";
     } else if (el.dataset.approve) {
       el.disabled = true;
@@ -665,7 +665,7 @@ $("#add-advisory").addEventListener("submit", async (ev) => {
     const res = await api(`/api/advisories/${encodeURIComponent(id)}`, { method: "POST" });
     $("#advisory-id").value = "";
     view.followAfter = S.runs[0]?.id ?? 0;
-    toast(`Fetched ${res.advisory} from OSV. PatchPilot is on it.`);
+    toast(`Fetched ${res.advisory} from OSV. LightHouse is on it.`);
     location.hash = "#/advisories";
   } catch (e) {
     if (!(e instanceof SignedOut)) toast(e.message, true);

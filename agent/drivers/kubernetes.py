@@ -7,14 +7,14 @@ Facts come from standard fields:
   exposure           Services of type LoadBalancer/NodePort and Ingress backends
   health path        the container's readiness probe
 
-Two PatchPilot conventions, both plain labels/annotations:
-  patchpilot.io/gateway-for: <deployment>   on an nginx gateway Deployment in
+Two LightHouse conventions, both plain labels/annotations:
+  lighthouse.io/gateway-for: <deployment>   on an nginx gateway Deployment in
       front of a workload; virtual patches go into its ConfigMap
       `<gateway>-mitigations`, mounted at /etc/nginx/pp/mitigations
-  patchpilot.io/role: gateway | canary | infra   keeps helpers out of the workload list
+  lighthouse.io/role: gateway | canary | infra   keeps helpers out of the workload list
 
 All HTTP to workloads (health, probes, canary checks) goes through the API
-server's service and pod proxy, so PatchPilot needs nothing but a kubeconfig.
+server's service and pod proxy, so LightHouse needs nothing but a kubeconfig.
 """
 from __future__ import annotations
 
@@ -28,9 +28,9 @@ from .. import config
 from ..schemas import Workload
 from .base import DriverError, HttpResult
 
-GATEWAY_FOR = "patchpilot.io/gateway-for"
-ROLE = "patchpilot.io/role"
-CANARY_OF = "patchpilot.io/canary-of"
+GATEWAY_FOR = "lighthouse.io/gateway-for"
+ROLE = "lighthouse.io/role"
+CANARY_OF = "lighthouse.io/canary-of"
 # API server proxy errors that mean "the app did not answer", not "the app said 5xx"
 PROXY_UNREACHABLE = ("error trying to reach", "connection refused", "dial tcp", "no endpoints available")
 
@@ -283,7 +283,7 @@ class KubernetesTarget:
         spec["template"]["metadata"]["labels"] = labels
         spec["template"]["spec"]["containers"][0]["image"] = image
         for c in spec["template"]["spec"]["containers"]:
-            c.pop("readinessProbe", None)        # PatchPilot checks health itself, through the pod proxy
+            c.pop("readinessProbe", None)        # LightHouse checks health itself, through the pod proxy
         spec.pop("strategy", None)
         body = {"apiVersion": "apps/v1", "kind": "Deployment",
                 "metadata": {"name": name, "labels": {ROLE: "canary", CANARY_OF: wl.name}}, "spec": spec}
@@ -333,7 +333,7 @@ class KubernetesTarget:
 
     def _restart_gateway(self, gateway: str, data: dict) -> None:
         digest = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:12]
-        patch = {"spec": {"template": {"metadata": {"annotations": {"patchpilot.io/mitigations": digest}}}}}
+        patch = {"spec": {"template": {"metadata": {"annotations": {"lighthouse.io/mitigations": digest}}}}}
         self.apps.patch_namespaced_deployment(gateway, self.namespace, patch)
         self._wait_rollout(gateway, config.ROLLOUT_TIMEOUT)
 

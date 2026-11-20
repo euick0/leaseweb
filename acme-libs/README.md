@@ -1,6 +1,6 @@
 # acme demo libraries
 
-Tiny Python libraries written for the PatchPilot demo. `scripts/build_acme.py`
+Tiny Python libraries written for the LightHouse demo. `scripts/build_acme.py`
 builds each version into `artifacts/pypi/<name>/<version>/` (wheel + sdist,
 byte-for-byte reproducible) and records their checksums.
 

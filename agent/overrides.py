@@ -2,10 +2,10 @@
 state/ui-settings.json and layered over the files:
 
   llm     {providers: [...], mode: live|cache, models: {provider: model}}
-          over LLM_PROVIDER / LLM_MODE / <NAME>_MODEL and patchpilot.yaml
+          over LLM_PROVIDER / LLM_MODE / <NAME>_MODEL and lighthouse.yaml
   policy  a partial policy, validated like policy.yaml, over policy.yaml
   scope   {targets: [...], workloads: [...], ecosystems: [...], packages: [...]}
-          what PatchPilot leaves alone: excluded from runs, probes and the OSV feed
+          what LightHouse leaves alone: excluded from runs, probes and the OSV feed
 
 A section that is not set falls back to the files; "reset" in the dashboard
 deletes the section. Secrets (API keys, tokens) are never stored here: they

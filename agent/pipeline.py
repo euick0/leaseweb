@@ -369,7 +369,7 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
 
     before = _probe(fl, adv, wl, probes.default_via(wl), log, "Before")
 
-    branch = f"patchpilot/{adv['id']}-{re.sub(r'[^a-z0-9._-]+', '-', comp.name.lower())}-{version}".lower()
+    branch = f"lighthouse/{adv['id']}-{re.sub(r'[^a-z0-9._-]+', '-', comp.name.lower())}-{version}".lower()
     src.start_change(branch)
     pins_before = eco.components(src.path)
     changed = []
@@ -388,7 +388,7 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
         return
     changed = sorted(set(changed))
     sha = src.commit(f"Bump {comp.coordinate} {comp.version} -> {version} ({feed.title(adv)})\n\n"
-                     f"{adv.get('summary', '')}\n\nVetted by PatchPilot: "
+                     f"{adv.get('summary', '')}\n\nVetted by LightHouse: "
                      + ", ".join(f"{c.coordinate} {t}" for c, t in bump) + "\n")
     log("change", "ok", f"Commit {sha} on {src.name}:{branch}", "\n".join(changed), {"files": changed})
 
@@ -474,7 +474,7 @@ def _review_body(adv: dict, wl: Workload, comp: Component, version: str, bump: l
              f"- Service: `{wl.name}` in `{wl.target}` ({wl.provider})",
              f"- Package: `{comp.coordinate}` {comp.version} → **{version}**"
              + (f" (with {', '.join(f'{c.name} {t}' for c, t in bump[1:])})" if len(bump) > 1 else ""),
-             f"- Update vetted by PatchPilot before the build (checksums, source match, diff review)"]
+             f"- Update vetted by LightHouse before the build (checksums, source match, diff review)"]
     if proof and proof.get("before") and proof.get("after"):
         lines.append(f"- Exploit probe: **{proof['before']['result']} → {proof['after']['result']}** "
                      f"({proof['after'].get('via', '')})")

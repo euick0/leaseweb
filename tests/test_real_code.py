@@ -196,7 +196,7 @@ def test_requirements_pins_keep_extras_markers_and_comments(tmp_path):
     eco.bump(tmp_path, Component(ecosystem="pypi", name="urllib3", version="1.26.0"), "2.5.0")    # transitive
     assert (tmp_path / "requirements.txt").read_text().splitlines() == [
         "# app", "Django==4.2.26  # web", "requests[socks]==2.32.4; python_version >= '3.8'", "-r base.txt",
-        "urllib3==2.5.0  # PatchPilot: pinned to the vetted fix"]
+        "urllib3==2.5.0  # LightHouse: pinned to the vetted fix"]
 
 
 def test_pyproject_dependencies_are_pinned(tmp_path):

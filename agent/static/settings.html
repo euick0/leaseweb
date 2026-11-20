@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PatchPilot settings</title>
+<title>LightHouse settings</title>
 <style>
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #16181d; --muted: #5d6573; --line: #e2e5ea;
@@ -108,7 +108,7 @@ tr.off td { opacity: .55; }
   <div data-panel="model" hidden>
     <section>
       <div class="sec-head"><h2>Models in use</h2><span id="llm-status" class="small"></span></div>
-      <p class="small">PatchPilot asks the first model in the list; when it cannot answer, the next one. Hosted models only receive redacted prompts, and only when AI permissions allow it. API keys stay in <code>.env</code>.</p>
+      <p class="small">LightHouse asks the first model in the list; when it cannot answer, the next one. Hosted models only receive redacted prompts, and only when AI permissions allow it. API keys stay in <code>.env</code>.</p>
       <div class="chain" id="chain"></div>
       <div class="btns" style="margin-top: 10px">
         <select id="add-provider" aria-label="Add a provider"></select>
@@ -200,7 +200,7 @@ const api = async (path, opts = {}) => {
   const r = await fetch(path, { ...opts, headers });
   if (r.status === 401 && !asking) {
     asking = true;
-    const given = prompt("PatchPilot API token:");
+    const given = prompt("LightHouse API token:");
     asking = false;
     if (given) { token = given.trim(); store.set(token); return api(path, opts); }
   }
@@ -253,7 +253,7 @@ async function loadServer() {
       ${h.uptime ? `<dt>Up</dt><dd>${dur(h.uptime)}</dd>` : ""}
       <dt>Tools</dt><dd>${Object.entries(s.tools).map(([t, ok]) => chip(ok ? "c-green" : "c-grey", t)).join(" ")}</dd>
     </dl></section>
-    <section><h2>PatchPilot</h2><dl class="facts">
+    <section><h2>LightHouse</h2><dl class="facts">
       <dt>Process</dt><dd>pid ${a.pid}, up ${dur(a.uptime)}${a.demo ? " · " + chip("c-amber", "demo controls on") : ""}</dd>
       <dt>Working now</dt><dd>${a.rollout_in_progress ? chip("c-blue", "rollout in progress") : a.runs_in_progress ? chip("c-blue", `${a.runs_in_progress} run(s) in progress`) : chip("c-grey", "idle")}</dd>
       <dt>Workers</dt><dd>${a.workers.map((w) => chip("c-green", w.replace("pp-", ""))).join(" ") || chip("c-amber", "none running")}</dd>
@@ -323,7 +323,7 @@ $("#save-llm").addEventListener("click", async () => {
   } catch (e) { say("#llm-msg", e.message, false); }
 });
 $("#reset-llm").addEventListener("click", async () => {
-  if (!confirm("Go back to the models in LLM_PROVIDER / patchpilot.yaml?")) return;
+  if (!confirm("Go back to the models in LLM_PROVIDER / lighthouse.yaml?")) return;
   try { await api("/api/settings/llm", { method: "DELETE" }); say("#llm-msg", "Back to the config files."); await load(); }
   catch (e) { say("#llm-msg", e.message, false); }
 });
@@ -377,7 +377,7 @@ $("#rules").addEventListener("change", (e) => {
 });
 $("#presets").addEventListener("click", async (e) => {
   const name = e.target.dataset.preset; if (!name) return;
-  if (name === "autonomous" && !confirm("Let PatchPilot apply clean fixes and virtual patches on every service without asking?")) return;
+  if (name === "autonomous" && !confirm("Let LightHouse apply clean fixes and virtual patches on every service without asking?")) return;
   try { await api("/api/settings/policy", { method: "PUT", json: { preset: name } }); say("#policy-msg", "Autonomy level changed."); await load(); }
   catch (err) { say("#policy-msg", err.message, false); }
 });
@@ -434,7 +434,7 @@ $("#save-scope").addEventListener("click", async () => {
   catch (e) { say("#scope-msg", e.message, false); }
 });
 $("#reset-scope").addEventListener("click", async () => {
-  try { await api("/api/settings/scope", { method: "DELETE" }); say("#scope-msg", "PatchPilot works on everything again."); await load(); }
+  try { await api("/api/settings/scope", { method: "DELETE" }); say("#scope-msg", "LightHouse works on everything again."); await load(); }
   catch (e) { say("#scope-msg", e.message, false); }
 });
 

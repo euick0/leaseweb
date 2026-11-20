@@ -2,11 +2,11 @@
 request (GitLab) instead of a local merge, so it goes through the company's
 normal review and CI.
 
-  forge:                                # patchpilot.yaml, default for every source
+  forge:                                # lighthouse.yaml, default for every source
     kind: github                        # github | gitlab | local | "module:Class"
     token: ${GITHUB_TOKEN}              # repo scope (GitHub) / api scope (GitLab)
     api_url: https://api.github.com     # GitHub Enterprise: https://ghe.example.com/api/v3
-    labels: [security, patchpilot]
+    labels: [security, lighthouse]
     deploy: true                        # false: verify on the canary, open the PR,
                                         # and leave the rollout to the company's CI/CD
 
@@ -59,7 +59,7 @@ class _Forge(GitSource):
     def accept_change(self, branch: str, title: Optional[str] = None, body: Optional[str] = None) -> Optional[str]:
         """Push the branch and open (or reuse) the review request; no local merge."""
         self._git("push", "-q", "--force", "origin", f"{branch}:{branch}")
-        url = self.open_review(branch, title or f"PatchPilot: {branch}", body or "")
+        url = self.open_review(branch, title or f"LightHouse: {branch}", body or "")
         self._git("checkout", "-q", self.main)
         return url
 

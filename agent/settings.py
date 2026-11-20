@@ -1,7 +1,7 @@
 """Company settings: the puzzle board.
 
-PatchPilot is built from pieces. Each slot below has built-in pieces, and a
-company fills in only what is specific to it in `patchpilot.yaml` (secrets
+LightHouse is built from pieces. Each slot below has built-in pieces, and a
+company fills in only what is specific to it in `lighthouse.yaml` (secrets
 go in `.env`, referenced as ${NAME}):
 
   auth      who may use the dashboard and API        none | token | proxy
@@ -12,7 +12,7 @@ go in `.env`, referenced as ${NAME}):
   sources, targets, ecosystems                       fleet.yaml
 
 Any slot also takes a custom piece by dotted path, `kind: "my_module:MyClass"`,
-loaded from the workspace or `plugins/`. Without a patchpilot.yaml every slot
+loaded from the workspace or `plugins/`. Without a lighthouse.yaml every slot
 falls back to the self-contained demo behaviour.
 
 `python -m agent.doctor` shows which pieces are in place and which are missing.

@@ -7,14 +7,14 @@
     - kind: teams                     # incoming webhook / Workflows URL
       webhook: ${TEAMS_WEBHOOK_URL}
     - kind: webhook                   # any JSON endpoint (PagerDuty, Jira automation, ...)
-      url: https://hooks.example.com/patchpilot
+      url: https://hooks.example.com/lighthouse
       headers: {Authorization: "Bearer ${HOOK_TOKEN}"}
     - kind: email
       smtp_host: smtp.example.com
       smtp_port: 587
       username: ${SMTP_USER}
       password: ${SMTP_PASSWORD}
-      from: patchpilot@example.com
+      from: lighthouse@example.com
       to: [secops@example.com]
 
 `on` defaults to the statuses where a human is needed or something went wrong.
@@ -125,7 +125,7 @@ class Email:
 
     def send(self, m: dict) -> None:
         msg = EmailMessage()
-        msg["Subject"], msg["From"], msg["To"] = f"[PatchPilot] {m['title']}", self.cfg["from"], ", ".join(self.to)
+        msg["Subject"], msg["From"], msg["To"] = f"[LightHouse] {m['title']}", self.cfg["from"], ", ".join(self.to)
         msg.set_content(_text(m))
         with smtplib.SMTP(self.cfg["smtp_host"], int(self.cfg.get("smtp_port", 587)), timeout=20) as smtp:
             if self.cfg.get("starttls", True):

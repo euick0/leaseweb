@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run PatchPilot on a laptop with no Docker, Kubernetes or model: the fleet is
+"""Run LightHouse on a laptop with no Docker, Kubernetes or model: the fleet is
 the local fake from tests/fakes.py (billing-py really runs, the Java services
 are simulated) and the model answers come from the cache.
 

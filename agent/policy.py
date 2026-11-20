@@ -1,5 +1,5 @@
 """Policy gate: plain Python over policy.yaml, with optional per-repository
-overrides from the repository's .patchpilot.yaml (`policy:` key).
+overrides from the repository's .lighthouse.yaml (`policy:` key).
 
 Decisions: auto | needs_approval | block | queue | ignore | escalate. The model's
 recommendation is an input; the decision is made here, in code.
@@ -51,7 +51,7 @@ ALLOWED_PATCH = {
 # One-click autonomy levels for the dashboard; each is a complete, valid policy
 # apart from allow_hosted_llm, which a preset never changes.
 PRESETS = {
-    "observe": {"label": "Recommend only", "summary": "PatchPilot investigates and proposes; a human approves every action.",
+    "observe": {"label": "Recommend only", "summary": "LightHouse investigates and proposes; a human approves every action.",
                 "policy": {"patch": {"clean": "needs_approval", "unreviewed": "needs_approval",
                                      "suspicious": "needs_approval", "malicious": "block"},
                            "mitigate": "needs_approval", "not_reachable": "needs_approval",

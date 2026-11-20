@@ -126,7 +126,7 @@ def fetch_osv(advisory_id: str, api: str = "https://api.osv.dev/v1") -> dict:
             other = get(alias)
             if other and feed.affected_packages(other):
                 return other
-    raise LookupError(f"{advisory_id} names no Maven or PyPI package PatchPilot can match")
+    raise LookupError(f"{advisory_id} names no Maven or PyPI package LightHouse can match")
 
 
 def publish(advisories: list[dict]) -> int:
