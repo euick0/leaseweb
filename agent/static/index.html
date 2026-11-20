@@ -9,39 +9,85 @@
   --bg: #f6f7f9; --panel: #ffffff; --ink: #16181d; --muted: #5d6573; --line: #e2e5ea;
   --red: #c62828; --red-bg: #fdecec; --green: #1b7f3b; --green-bg: #e7f6ec;
   --amber: #a15c00; --amber-bg: #fff4e0; --blue: #1f5fbf; --blue-bg: #e8f0fc; --violet: #6b3fb5; --violet-bg: #f1ebfb;
-  --grey-bg: #eef0f3;
+  --grey-bg: #eef0f3; --on-blue: #fff; --shadow: 0 8px 24px rgba(16, 24, 40, .12);
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111317; --panel: #1a1d23; --ink: #e8eaee; --muted: #9aa3b2; --line: #2b3039;
     --red: #ff6b6b; --red-bg: #3a1d1f; --green: #4cc27a; --green-bg: #17301f;
     --amber: #f0a742; --amber-bg: #352813; --blue: #78a8ff; --blue-bg: #18253d; --violet: #b394f0; --violet-bg: #271f3a;
-    --grey-bg: #242830;
+    --grey-bg: #242830; --on-blue: #0b1220; --shadow: 0 8px 24px rgba(0, 0, 0, .45);
   }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-header h1 { font-size: 18px; margin: 0; }
-header .sub { color: var(--muted); font-size: 13px; }
-header .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button, input { font: inherit; color: var(--ink); }
+button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
 button:hover { border-color: var(--muted); }
-button.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+button.primary { background: var(--blue); color: var(--on-blue); border-color: var(--blue); }
 button.danger { color: var(--red); }
 button:disabled { opacity: .5; cursor: default; }
-input { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 5px 8px; }
-header form.actions { margin-left: 0; }
-main { padding: 16px 20px; display: grid; gap: 16px; }
+input[type=search], input[type=password] { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 6px 10px; min-width: 0; }
+
+/* shell */
+.app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+.side { background: var(--panel); border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+.brand { font-weight: 800; font-size: 17px; padding: 0 8px 14px; }
+.brand .small { display: block; font-weight: 400; }
+.nav a { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; color: var(--ink); font-weight: 500; }
+.nav a:hover { background: var(--grey-bg); text-decoration: none; }
+.nav a.active { background: var(--blue-bg); color: var(--blue); }
+.badge { margin-left: auto; background: var(--red); color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 7px; line-height: 18px; }
+.side-foot { margin-top: auto; padding: 8px; display: grid; gap: 6px; }
+.top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.top h1 { font-size: 18px; margin: 0; }
+.add-adv { display: flex; gap: 6px; }
+.add-adv input { width: 170px; }
+.top .right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.conn { background: var(--amber-bg); color: var(--amber); padding: 6px 20px; font-size: 13px; }
+main { padding: 16px 20px 40px; display: grid; gap: 16px; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; height: auto; flex-direction: row; align-items: center; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .brand { padding: 0 8px 0 0; } .brand .small { display: none; }
+  .nav { display: flex; gap: 2px; } .nav a { white-space: nowrap; }
+  .side-foot { margin: 0 0 0 auto; padding: 0; }
+  .side-foot .small { display: none; }
+  .top, main { padding-left: 16px; padding-right: 16px; }
+}
+@media (max-width: 640px) {
+  .side { flex-wrap: wrap; overflow: visible; }
+  .nav { order: 3; width: 100%; overflow-x: auto; }
+}
+
+/* menu */
+details.menu { position: relative; }
+details.menu > summary { list-style: none; cursor: pointer; border: 1px dashed var(--muted); border-radius: 6px; padding: 5px 10px; color: var(--muted); }
+details.menu > summary::-webkit-details-marker { display: none; }
+.menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 6px; width: min(320px, 90vw); display: grid; gap: 2px; }
+.menu-list button { border: 0; text-align: left; display: grid; gap: 2px; padding: 8px; }
+.menu-list button:hover { background: var(--grey-bg); }
+.menu-list .small { padding: 6px 8px; }
+
+/* blocks */
 section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
-h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.envs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
-.env { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-.env-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.env-head b { font-size: 15px; }
-.wl { border-top: 1px solid var(--line); padding: 8px 0; display: grid; gap: 4px; }
-.wl:first-of-type { border-top: 0; }
-.wl-name { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 600; }
+h2 { font-size: 13px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.sec-head h2 { margin: 0; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; align-items: start; }
+.cols { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; color: var(--ink); display: grid; gap: 2px; }
+a.kpi:hover { border-color: var(--muted); text-decoration: none; }
+.kpi-v { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.kpi-l { font-weight: 600; }
+.kpi.red .kpi-v { color: var(--red); } .kpi.amber .kpi-v { color: var(--amber); } .kpi.green .kpi-v { color: var(--green); }
+.envs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px; }
+.env { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; background: var(--panel); }
+.env-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .small { color: var(--muted); font-size: 12px; }
 .chip { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .c-red { background: var(--red-bg); color: var(--red); }
@@ -50,238 +96,596 @@ h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacin
 .c-blue { background: var(--blue-bg); color: var(--blue); }
 .c-violet { background: var(--violet-bg); color: var(--violet); }
 .c-grey { background: var(--grey-bg); color: var(--muted); }
-.cols { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
-@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
-.run { padding: 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
-.run:hover { background: var(--grey-bg); }
+.empty { color: var(--muted); padding: 12px 0; }
+.err { color: var(--red); font-size: 12px; }
+
+/* tables */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+tr.link { cursor: pointer; } tr.link:hover td { background: var(--grey-bg); }
+@media (max-width: 640px) {
+  .hide-sm { display: none; }
+  table.stack thead { display: none; }
+  table.stack tr { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  table.stack tr:last-child { border-bottom: 0; }
+  table.stack td { border: 0; padding: 0; }
+}
+
+/* advisories and items */
+.run { padding: 8px; border-radius: 6px; border: 1px solid transparent; display: grid; gap: 2px; color: var(--ink); }
+.run:hover { background: var(--grey-bg); text-decoration: none; }
 .run.sel { border-color: var(--blue); background: var(--blue-bg); }
 .items { display: grid; gap: 10px; }
-.item { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; cursor: pointer; }
-.item.sel { border-color: var(--blue); }
+.item { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; background: var(--panel); }
+.item.sel { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .item-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .item-head .rank { font-weight: 700; color: var(--muted); }
-.proof { display: flex; gap: 10px; align-items: center; font-size: 22px; font-weight: 800; letter-spacing: .02em; }
+.facts { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 6px 12px; margin: 4px 0; }
+.facts dt { color: var(--muted); font-size: 12px; font-weight: 600; padding-top: 1px; }
+.facts dd { margin: 0; display: grid; gap: 4px; }
+@media (max-width: 640px) { .facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } .facts dd { margin-bottom: 6px; } }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.proof { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 18px; font-weight: 800; }
 .proof .arrow { color: var(--muted); font-weight: 400; }
 .v-VULNERABLE { color: var(--red); } .v-SAFE, .v-BLOCKED { color: var(--green); } .v-ERROR { color: var(--amber); }
-.events { margin-top: 12px; display: grid; gap: 2px; }
-.ev { display: grid; grid-template-columns: 64px 84px 1fr; gap: 8px; padding: 4px 6px; border-radius: 4px; }
+.evidence { border-left: 3px solid var(--red); padding: 4px 8px; background: var(--red-bg); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 12px 0; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 10px; color: var(--muted); background: none; }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--blue); font-weight: 600; }
+.events { display: grid; gap: 2px; }
+.ev { display: grid; grid-template-columns: 64px 110px minmax(0, 1fr); gap: 8px; padding: 4px 6px; border-radius: 4px; }
 .ev:hover { background: var(--grey-bg); }
 .ev .t { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
 .ev details summary { cursor: pointer; }
 .ev pre { white-space: pre-wrap; word-break: break-word; background: var(--grey-bg); padding: 8px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; max-height: 320px; overflow: auto; }
+@media (max-width: 640px) { .ev { grid-template-columns: 52px minmax(0, 1fr); } .ev .s { display: none; } }
 .st-ok { color: var(--green); } .st-fail { color: var(--red); } .st-warn { color: var(--amber); } .st-ai { color: var(--violet); } .st-pending { color: var(--blue); } .st-info { color: var(--muted); }
-.evidence { border-left: 3px solid var(--red); padding: 4px 8px; background: var(--red-bg); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
-.empty { color: var(--muted); padding: 12px 0; }
-.err { color: var(--amber); font-size: 12px; }
+
+/* sign-in, dialog, toasts */
+.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.login form { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 24px; width: min(400px, 100%); display: grid; gap: 12px; box-shadow: var(--shadow); }
+.login h1 { margin: 0; font-size: 20px; }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 20px; width: min(420px, calc(100vw - 32px)); box-shadow: var(--shadow); }
+dialog::backdrop { background: rgba(0, 0, 0, .35); }
+dialog p { margin: 0 0 16px; }
+.toasts { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; max-width: calc(100vw - 32px); }
+.toast { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow); width: 340px; max-width: 100%; }
+.toast.bad { border-left-color: var(--red); }
+[hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>PatchPilot</h1>
-    <div class="sub">One advisory in, one proven decision per workload out · <span id="llm">model</span> <span id="sovereign"></span> · <span id="me"></span></div>
-  </div>
-  <div class="actions" id="scenarios"></div>
-  <form class="actions act-only" id="add-advisory">
-    <input id="advisory-id" placeholder="CVE-… or GHSA-…" size="16" aria-label="Advisory id">
-    <button type="submit">Add advisory</button>
+<div class="login" id="login" hidden>
+  <form id="login-form">
+    <h1>Sign in to PatchPilot</h1>
+    <div class="small">Use your token from <code>PP_API_TOKENS</code>, or the one the agent printed when it started. Approvals are recorded under the name that token belongs to.</div>
+    <input type="password" id="login-token" placeholder="API token" autocomplete="current-password" required>
+    <div class="err" id="login-err"></div>
+    <button class="primary" type="submit">Sign in</button>
   </form>
-  <div class="actions">
-    <button id="probe" class="act-only">Probe fleet</button>
-    <button id="refresh">Rediscover</button>
-    <a href="/settings">Settings</a>
+</div>
+
+<div class="app" id="app" hidden>
+  <aside class="side">
+    <div class="brand">PatchPilot<span class="small">Proven fixes across the fleet</span></div>
+    <nav class="nav">
+      <a href="#/overview" data-page="overview">Overview</a>
+      <a href="#/advisories" data-page="advisories">Advisories</a>
+      <a href="#/approvals" data-page="approvals">Approvals <span class="badge" id="badge" hidden></span></a>
+      <a href="#/fleet" data-page="fleet">Fleet</a>
+      <a href="#/audit" data-page="audit">Audit log</a>
+    </nav>
+    <div class="side-foot">
+      <div class="small" id="me"></div>
+      <div class="small" id="llm"></div>
+      <button id="signout">Sign out</button>
+    </div>
+  </aside>
+  <div>
+    <div class="top">
+      <h1 id="title">Overview</h1>
+      <span id="sovereign"></span>
+      <div class="right">
+        <form class="add-adv act-only" id="add-advisory" title="Fetch an advisory from OSV by id and run it">
+          <input type="search" id="advisory-id" placeholder="CVE-… or GHSA-…" aria-label="Advisory id"><button type="submit">Add advisory</button></form>
+        <details class="menu" id="demo" hidden><summary>Demo ▾</summary><div class="menu-list" id="demo-list"></div></details>
+        <button id="probe" class="act-only" title="Run the safe exploit check for every known advisory on every workload">Run exploit checks</button>
+        <button id="refresh" title="Ask every environment for its workloads again">Rediscover</button>
+      </div>
+    </div>
+    <div class="conn" id="conn" hidden>Can't reach the PatchPilot agent. Retrying…</div>
+    <main id="page"></main>
   </div>
-</header>
-<main>
-  <section>
-    <h2>Fleet</h2>
-    <div class="envs" id="fleet"><div class="empty">Discovering…</div></div>
-  </section>
-  <div class="cols">
-    <section>
-      <h2>Advisories</h2>
-      <div id="runs"><div class="empty">No advisory yet. Publish a scenario above.</div></div>
-    </section>
-    <section>
-      <h2 id="run-title">Decisions</h2>
-      <div id="run"></div>
-    </section>
-  </div>
-</main>
+</div>
+
+<dialog id="confirm"><p id="confirm-text"></p><div class="btns" style="justify-content:flex-end">
+  <button id="confirm-no">Cancel</button><button class="primary" id="confirm-yes">Confirm</button></div></dialog>
+<div class="toasts" id="toasts"></div>
+
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-// The API token arrives once in the URL fragment (#token=...) or by prompt, and stays in this browser.
+
+// ------------------------------------------------------------------ auth
+// The API token arrives once in the URL fragment (#token=...) or on the sign-in screen, and stays in this browser.
 const store = { get: () => { try { return localStorage.getItem("pp-token"); } catch { return null; } },
-                set: (t) => { try { localStorage.setItem("pp-token", t); } catch {} } };
+                set: (t) => { try { localStorage.setItem("pp-token", t); } catch {} },
+                clear: () => { try { localStorage.removeItem("pp-token"); } catch {} } };
 let token = store.get();
-const hash = new URLSearchParams(location.hash.slice(1));   // #token=... once; #run=3&item=7 from notifications
-const fromHash = hash.get("token");
-if (fromHash) { token = fromHash; store.set(token); history.replaceState(null, "", location.pathname); }
-let asking = false;
+const fromHash = new URLSearchParams(location.hash.slice(1)).get("token");
+if (fromHash) { token = fromHash; store.set(token); history.replaceState(null, "", location.pathname + "#/overview"); }
+const linked = new URLSearchParams(location.hash.slice(1));      // #run=3&item=7 from notifications
+if (linked.get("run")) history.replaceState(null, "", `${location.pathname}#/advisories/${Number(linked.get("run"))}`);
+
+class SignedOut extends Error {}
 const api = async (path, opts = {}) => {
   const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token || ""}` } });
-  if (r.status === 401 && !asking) {
-    asking = true;
-    const given = prompt("PatchPilot API token (printed when the agent starts, or your PP_API_TOKENS entry):");
-    asking = false;
-    if (given) { token = given.trim(); store.set(token); return api(path, opts); }
-  }
+  if (r.status === 401) { signOut("That token was not accepted. Sign in again."); throw new SignedOut(); }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
 };
-let selectedRun = null, selectedItem = null, busy = false, lastRunHtml = "", mayAct = true;
 
-async function loadMe() {
-  const m = await api("/api/me");
-  mayAct = m.may_act;
-  $("#me").textContent = m.auth === "none" ? "no login (demo)" : `${m.user}${m.may_act ? "" : " · view only"}`;
-  document.querySelectorAll(".act-only").forEach((el) => { el.style.display = mayAct ? "" : "none"; });
+function signOut(message = "") {
+  token = null; store.clear();
+  $("#app").hidden = true; $("#login").hidden = false;
+  $("#login-err").textContent = message;
+  $("#login-token").focus();
 }
 
+// who is signed in and whether they may act (auth.approvers); "none" auth has no sign-in at all
+const me = { user: null, mayAct: true, auth: "token" };
+
+function signedIn() { $("#login").hidden = true; $("#app").hidden = false; }
+
+// --------------------------------------------------------------- wording
+// Every internal value gets a plain-language label; the raw value stays in a tooltip.
+const WAITING = ["awaiting_approval", "queued"];
 const STATUS = {
-  matched: ["c-grey", "matched"], running: ["c-blue", "running"], awaiting_approval: ["c-amber", "awaiting approval"],
-  queued: ["c-grey", "queued"], done: ["c-green", "done"], blocked: ["c-red", "blocked"], failed: ["c-red", "failed"],
-  ignored: ["c-grey", "ignored"], rolled_back: ["c-amber", "rolled back"], escalated: ["c-amber", "needs a human"],
-  proposed: ["c-green", "fix proposed"],
+  matched: ["c-grey", "Found", "Affected workload found; assessment pending"],
+  running: ["c-blue", "In progress", "PatchPilot is working on it"],
+  awaiting_approval: ["c-amber", "Needs approval", "Waiting for a human to approve or reject"],
+  queued: ["c-grey", "Scheduled", "Scheduled for the next maintenance window; you can act now"],
+  done: ["c-green", "Resolved", "Fixed or shielded, with proof"],
+  blocked: ["c-red", "Blocked", "Stopped by policy or by an operator; nothing was changed"],
+  failed: ["c-red", "Failed", "The action failed; production was left as it was"],
+  ignored: ["c-grey", "No action needed", "The vulnerable code is not reachable here"],
+  rolled_back: ["c-amber", "Rolled back", "Still vulnerable after rollout, so the previous version is back"],
+  escalated: ["c-amber", "Needs a human", "No fix and no safe virtual patch"],
+  proposed: ["c-green", "Fix proposed", "Verified on a canary; a pull request waits for the team's CI/CD"],
 };
-const VERDICT = { clean: "c-green", unreviewed: "c-amber", suspicious: "c-amber", malicious: "c-red" };
+const ACTION = { patch: "Upgrade the dependency", mitigate: "Virtual patch at the gateway", none: "No action" };
+const DECISION = { auto: "automatic", needs_approval: "needs approval", queue: "scheduled for the maintenance window",
+                   block: "blocked", ignore: "no action needed", escalate: "handed to a human" };
+const PLAN = {
+  patch: "Builds the upgraded image, tests it on a canary, rolls it out, then re-runs the exploit check. Any failed step rolls back automatically.",
+  mitigate: "Adds a blocking rule at the gateway in front of the workload, then re-runs the exploit check and a health check. The rule is removed again if the service breaks.",
+};
+const VERDICT = { clean: ["c-green", "Fix reviewed: clean"], unreviewed: ["c-amber", "Fix not fully reviewed"],
+                  suspicious: ["c-amber", "Fix looks suspicious"], malicious: ["c-red", "Fix is malicious"] };
 const SEVERITY = { critical: "c-red", high: "c-amber", medium: "c-blue", low: "c-grey", none: "c-grey" };
-const chip = (cls, text) => `<span class="chip ${cls}">${esc(text)}</span>`;
-const statusChip = (s) => chip(...(STATUS[s] || ["c-grey", s]));
+const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, none: 4 };
+const PROBE = { VULNERABLE: "Exploitable", SAFE: "Safe", BLOCKED: "Blocked", ERROR: "Check failed" };
+const PROOF = { "exploit probe": "Proven: the exploit was re-run", "exploit probe on canary": "Proven on a canary: the exploit was re-run", "re-scan + health": "Verified by re-scan and health check (no exploit test)",
+                "already blocked before this action": "Already blocked before this action" };
+const STEP = { watch: "Advisory", discover: "Discovery", inventory: "Inventory", match: "Match", triage: "AI assessment",
+               rank: "Priority", vet: "Fix review", policy: "Policy", change: "Code change", build: "Build", canary: "Canary",
+               promote: "Rollout", rollback: "Rollback", mitigate: "Virtual patch", probe: "Exploit check", summary: "Summary", error: "Error" };
+const SOURCE = { live: "live model", cache: "cached model answer", fallback: "fallback rules, model unavailable", seed: "hand-written seed answer" };
+
+const chip = (cls, text, title = "") => `<span class="chip ${cls}"${title ? ` title="${esc(title)}"` : ""}>${esc(text)}</span>`;
+const statusChip = (s) => { const [c, l, h] = STATUS[s] || ["c-grey", s, ""]; return chip(c, l, `${h} (${s})`); };
+const sevChip = (s) => s ? chip(SEVERITY[s] || "c-grey", s) : "";
+const exposureChip = (w) => w.internet_exposed ? chip("c-red", "Internet-facing", w.exposure) : chip("c-grey", "Internal", w.exposure);
 const probeChip = (p) => chip(p.result === "VULNERABLE" ? "c-red" : p.result === "ERROR" ? "c-amber" : "c-green",
-  `${p.probe}: ${p.result}${p.via === "internal" ? " (internal)" : ""}`);
+  `${p.probe}: ${PROBE[p.result] || p.result}${p.via === "internal" ? " (internal)" : ""}`, `${p.result} via ${p.via} · ${p.detail || ""}`);
 const time = (ts) => new Date(ts * 1000).toLocaleTimeString([], {hour12: false});
+const ago = (ts) => {
+  const s = Date.now() / 1000 - ts;
+  return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)} h ago`
+    : new Date(ts * 1000).toLocaleDateString();
+};
 const tag = (image) => image.split("/").pop();
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const pkg = (c) => (c.group ? c.group + ":" : "") + c.name;
 
-async function loadScenarios() {
-  const list = await api("/api/scenarios");
-  $("#scenarios").innerHTML = mayAct ? list.map((s) =>
-    `<button class="${s.triggered ? "" : "primary"}" data-scenario="${esc(s.name)}" title="${esc(s.summary)}">${esc(s.name)}</button>`).join("") : "";
+// ----------------------------------------------------------------- state
+const S = { fleet: null, runs: [], scenarios: [], details: new Map(), approvals: [], audit: [] };
+const view = { run: null, item: linked.get("item") ? Number(linked.get("item")) : null, tab: "decisions", filter: "", followAfter: null };
+const PAGES = { overview: "Overview", advisories: "Advisories", approvals: "Approvals", fleet: "Fleet", audit: "Audit log" };
+const route = () => {
+  const [, name, arg] = location.hash.replace(/^#/, "").split("/");
+  return { name: PAGES[name] ? name : "overview", arg: arg ? Number(arg) : null };
+};
+
+// write a region only when its HTML changed, so selection, focus and open entries survive the poll
+const last = new Map();
+function set(id, html) {
+  const el = document.getElementById(id);
+  if (!el || last.get(id) === html) return;
+  last.set(id, html);
+  el.innerHTML = html;
 }
 
-async function loadFleet(refresh = false) {
-  const f = await api("/api/fleet" + (refresh ? "?refresh=true" : ""));
-  $("#llm").textContent = `model: ${f.llm.providers}` + (f.llm.mode === "cache" ? " (cached answers only)" : "");
-  $("#sovereign").outerHTML = f.llm.sovereign
-    ? `<span id="sovereign" class="chip c-green" title="No hosted model API is configured. ${f.llm.local_calls} model call(s) since start, all on our own infrastructure.">sovereign · 0 prompts left this infrastructure</span>`
-    : `<span id="sovereign" class="chip c-amber" title="Hosted providers: ${esc(f.llm.hosted_providers.join(", ") || "none now")}. Prompts to them are redacted (${f.llm.redactions} redaction(s) so far).">hosted model API allowed · ${f.llm.hosted_calls} prompt(s) sent out</span>`;
-  $("#fleet").innerHTML = f.environments.map((env) => {
-    const wls = f.workloads.filter((w) => w.target === env.name);
-    return `<div class="env">
-      <div class="env-head"><div><b>${esc(env.label)}</b><div class="small">${esc(env.provider || env.kind)} · ${esc(env.kind)}</div></div>
-      <div class="small">${wls.length} workload${wls.length === 1 ? "" : "s"}</div></div>
-      ${env.error ? `<div class="err">unreachable: ${esc(env.error)}</div>` : ""}
-      ${wls.map((w) => `<div class="wl">
-        <div class="wl-name">${esc(w.name)}
-          ${w.internet_exposed ? chip("c-red", "internet-exposed") : chip("c-grey", "internal")}
-          ${w.probes.map(probeChip).join(" ")}</div>
-        <div class="small">${esc(tag(w.image))} · repo ${esc(w.repo || "unlinked")}${w.region ? " · " + esc(w.region) : ""}</div>
-        <div class="small">${esc(w.exposure)}</div>
-      </div>`).join("") || `<div class="empty">no workloads</div>`}
-    </div>`;
-  }).join("") || `<div class="empty">No targets in fleet.yaml</div>`;
-}
-
-async function loadRuns() {
-  const runs = await api("/api/runs");
-  if (!runs.length) return;
-  if (selectedRun === null || !runs.some((r) => r.id === selectedRun)) selectedRun = runs[0].id;
-  $("#runs").innerHTML = runs.map((r) => `<div class="run ${r.id === selectedRun ? "sel" : ""}" data-run="${r.id}">
-    <div class="item-head"><b>${esc(r.title)}</b> ${r.severity ? chip(SEVERITY[r.severity], r.severity) : ""} ${statusChip(r.status)}</div>
-    <div class="small">${esc(r.summary)}</div>
-    <div class="small">run ${r.id} · ${time(r.started)} · ${r.items.length} workload${r.items.length === 1 ? "" : "s"} · ${esc(r.outcome || "")}</div>
-  </div>`).join("");
-}
-
+// ----------------------------------------------------------------- pieces
 function vetBlock(events) {
   const v = events.filter((e) => e.step === "vet" && e.data && e.data.verdict).pop();
   if (!v) return "";
-  const d = v.data;
+  const d = v.data, [cls, label] = VERDICT[d.verdict] || ["c-grey", d.verdict];
   const evidence = d.flags.filter((f) => f.severity === "hard" || f.severity === "soft")
     .map((f) => `<div class="evidence">${esc(f.file)}: ${esc(f.message)}\n${f.lines.map((l) => "+ " + esc(l)).join("\n")}</div>`).join("");
   const ai = d.reviews.filter((r) => r.review.suspicious)
-    .map((r) => `<div class="small"><span class="st-ai">model (${esc(r.source)}):</span> ${esc(r.review.explanation)}</div>`).join("");
-  return `<div>${chip(VERDICT[d.verdict], "fix " + d.verdict)} <span class="small">${esc(d.artifact)} ${esc(d.to_version)}${d.cached ? " · cached verdict reused" : ""}</span></div>${evidence}${ai}`;
+    .map((r) => `<div class="small"><span class="st-ai">Model (${esc(r.source)}):</span> ${esc(r.review.explanation)}</div>`).join("");
+  return `<div>${chip(cls, label, d.verdict)} <span class="small">${esc(d.artifact)} ${esc(d.to_version)}${d.cached ? " · verdict reused from an earlier review" : ""}</span></div>${evidence}${ai}`;
 }
 
-async function loadRun() {
-  if (selectedRun === null) return;
-  const { run, items, events } = await api(`/api/runs/${selectedRun}`);
-  $("#run-title").textContent = `${run.title} · decisions per workload`;
-  const runEvents = events.filter((e) => !e.item_id);
-  const open = new Set([...document.querySelectorAll("#run details[open]")].map((d) => d.dataset.ev));
-  const scroll = new Map([...document.querySelectorAll("#run details[open] pre")].map((el) => [el.parentElement.dataset.ev, el.scrollTop]));
-  const html = `<div class="items">${items.map((it) => {
-    const w = it.workload, t = it.triage, d = it.decision, p = it.proof;
-    const evs = events.filter((e) => e.item_id === it.id);
-    const actions = mayAct && ["awaiting_approval", "queued"].includes(it.status)
-      ? `<div><button class="primary" data-approve="${it.id}">${it.status === "queued" ? "Act now" : "Approve " + esc(d.action)}</button>
-         <button class="danger" data-reject="${it.id}">Reject</button></div>` : "";
-    return `<div class="item ${it.id === selectedItem ? "sel" : ""}" data-item="${it.id}">
-      <div class="item-head"><span class="rank">#${it.rank ?? "?"}</span><b>${esc(w.name)}</b>
-        <span class="small">${esc(w.target)} · ${esc(w.provider)}</span>
-        ${w.internet_exposed ? chip("c-red", "internet-exposed") : chip("c-grey", "internal")}
-        ${statusChip(it.status)}</div>
-      <div class="small">${esc((it.component.group ? it.component.group + ":" : "") + it.component.name)} ${esc(it.component.version)}${it.fixed_version ? " → fix " + esc(it.fixed_version) : " · no fix released"}</div>
-      ${t ? `<div><span class="st-ai">AI (${esc(it.triage_source)})</span> ${chip("c-violet", t.severity_for_this_workload)} ${chip("c-violet", t.reachable ? "reachable" : "not reachable")} ${esc(t.explanation)}</div>` : ""}
-      ${vetBlock(evs)}
-      ${d ? `<div><b>Policy:</b> ${esc(d.action)} → ${esc(d.decision.replace("_", " "))} <span class="small">${esc(d.reason)}</span></div>` : ""}
-      ${p && p.before && p.after ? `<div class="proof"><span class="v-${p.before.result}">${p.before.result}</span><span class="arrow">→</span><span class="v-${p.after.result}">${p.after.result}</span><span class="small">${esc(p.level)} · ${esc(p.after.via)}</span></div>`
-        : p ? `<div class="small">proof: ${esc(p.level)} ${esc(p.rescan || "")}</div>` : ""}
-      ${p && p.review ? `<div class="small">review: <a href="${esc(p.review)}" target="_blank" rel="noopener">${esc(p.review)}</a></div>` : ""}
-      ${it.outcome && !["awaiting_approval", "queued"].includes(it.status) ? `<div class="small">${esc(it.outcome)}${it.decided_by ? " · decided by " + esc(it.decided_by) : ""}</div>` : ""}
-      ${actions}
-    </div>`;
-  }).join("") || `<div class="empty">${esc(run.outcome || "Working…")}</div>`}</div>
-  <h2 style="margin-top:16px">Decision log${selectedItem ? " · selected workload" : ""}</h2>
-  <div class="events">${(selectedItem ? events.filter((e) => e.item_id === selectedItem || !e.item_id) : events).map((e) => {
-    const body = [e.detail, e.data ? JSON.stringify(e.data, null, 2) : ""].filter(Boolean).join("\n\n");
-    return `<div class="ev"><span class="t">${time(e.ts)}</span><span class="st-${e.status}">${esc(e.step)}</span>
-      ${body ? `<details data-ev="${e.id}"${open.has(String(e.id)) ? " open" : ""}><summary>${esc(e.title)}</summary><pre>${esc(body)}</pre></details>` : `<span>${esc(e.title)}</span>`}</div>`;
-  }).join("")}</div>`;
-  if (html === lastRunHtml) return;          // nothing new: leave the DOM (selection, scroll, open entries) alone
-  lastRunHtml = html;
-  $("#run").innerHTML = html;
-  for (const [id, top] of scroll) { const el = document.querySelector(`#run details[data-ev="${id}"] pre`); if (el) el.scrollTop = top; }
+function triageBlock(it) {
+  const t = it.triage;
+  if (!t) return "";
+  return `<div>${chip("c-violet", t.severity_for_this_workload + " here")} ${chip("c-violet", t.reachable ? "reachable" : "not reachable")}
+    <span class="small">${esc(SOURCE[it.triage_source] || it.triage_source || "")}</span></div><div>${esc(t.explanation)}</div>`;
+}
+
+const reviewLink = (url) => url ? `<div class="small">Pull request: <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></div>` : "";
+
+function proofBlock(p) {
+  if (!p) return "";
+  if (p.before && p.after) return `<div class="proof"><span class="v-${p.before.result}">${esc(PROBE[p.before.result] || p.before.result)}</span>
+    <span class="arrow">→</span><span class="v-${p.after.result}">${esc(PROBE[p.after.result] || p.after.result)}</span></div>
+    <div class="small">${esc(PROOF[p.level] || p.level)} · checked via ${esc(p.after.via)}</div>${reviewLink(p.review)}`;
+  return `<div class="small">${esc(PROOF[p.level] || p.level)}${p.rescan ? " · " + esc(p.rescan) : ""}</div>${reviewLink(p.review)}`;
+}
+
+function decisionText(d) {
+  return d ? `<b>${esc(ACTION[d.action] || d.action)}</b>, ${esc(DECISION[d.decision] || d.decision)} <span class="small">· ${esc(d.reason)}</span>` : "";
+}
+
+function itemButtons(it, extra = "") {
+  if (!WAITING.includes(it.status) || !me.mayAct) return extra ? `<div class="btns">${extra}</div>` : "";
+  const what = ACTION[it.decision?.action] || "action";
+  return `<div class="btns"><button class="primary" data-approve="${it.id}" data-what="${esc(what)}" data-name="${esc(it.workload.name)}">${it.status === "queued" ? "Do it now" : "Approve: " + esc(what)}</button>
+    <button class="danger" data-reject="${it.id}" data-what="${esc(what)}" data-name="${esc(it.workload.name)}">Reject</button>${extra}</div>`;
+}
+
+const packageLine = (it) => `<span class="small">${esc(pkg(it.component))} ${esc(it.component.version)}${it.fixed_version ? " → fix " + esc(it.fixed_version) : " · no fix released"}</span>`;
+
+// one workload decision, used on the advisory page
+function itemCard(it, events, total) {
+  const w = it.workload;
+  const outcome = it.outcome && !WAITING.includes(it.status)
+    ? `<div class="small">${esc(it.outcome)}${it.decided_by ? " · decided by " + esc(it.decided_by) : ""}</div>` : "";
+  const pr = it.proof?.review ? "" : events.filter((e) => e.step === "change" && e.data?.url).map((e) => reviewLink(e.data.url)).pop() || "";
+  return `<div class="item ${it.id === view.item ? "sel" : ""}" id="item-${it.id}">
+    <div class="item-head"><span class="rank" title="Priority ${it.rank ?? "?"} of ${total}: most critical first">#${it.rank ?? "?"}</span>
+      <b>${esc(w.name)}</b><span class="small">${esc(w.target)} · ${esc(w.provider)}</span>${exposureChip(w)} ${statusChip(it.status)}
+      <a href="#" class="small" data-steps="${it.id}" style="margin-left:auto">Steps →</a></div>
+    ${packageLine(it)}
+    <dl class="facts">
+      ${it.triage ? `<dt>AI assessment</dt><dd>${triageBlock(it)}</dd>` : ""}
+      ${vetBlock(events) ? `<dt>Fix review</dt><dd>${vetBlock(events)}</dd>` : ""}
+      ${it.decision ? `<dt>Decision</dt><dd><div>${decisionText(it.decision)}</div></dd>` : ""}
+      ${it.proof ? `<dt>Proof</dt><dd>${proofBlock(it.proof)}</dd>` : ""}
+    </dl>
+    ${pr}${outcome}${itemButtons(it)}
+  </div>`;
+}
+
+// one item waiting for a human, used in the approvals inbox
+function approvalCard(a) {
+  const w = a.workload, d = a.decision || {};
+  return `<div class="item">
+    <div class="item-head"><b>${esc(ACTION[d.action] || "Decide")} on ${esc(w.name)}</b> ${sevChip(a.severity)} ${statusChip(a.status)}</div>
+    <div class="small">For <a href="#/advisories/${a.run.id}">${esc(a.run.title)}</a> · ${esc(w.target)} · ${esc(w.provider)} · ${w.internet_exposed ? "internet-facing" : "internal"}</div>
+    ${packageLine(a)}
+    <dl class="facts">
+      <dt>Why it is waiting</dt><dd>${a.status === "queued" ? "Internal workload, so policy scheduled it for the maintenance window. " : ""}${esc(d.reason || "")}</dd>
+      ${a.triage ? `<dt>AI assessment</dt><dd>${triageBlock(a)}</dd>` : ""}
+      ${vetBlock(a.events) ? `<dt>Fix review</dt><dd>${vetBlock(a.events)}</dd>` : ""}
+      ${PLAN[d.action] ? `<dt>If you approve</dt><dd>${esc(PLAN[d.action])}</dd>` : ""}
+    </dl>
+    ${itemButtons(a)}
+  </div>`;
+}
+
+function approvalRow(a) {
+  const d = a.decision || {};
+  return `<div class="item"><div class="item-head"><b>${esc(ACTION[d.action] || "Decide")} on ${esc(a.workload.name)}</b> ${sevChip(a.severity)} ${statusChip(a.status)}</div>
+    <div class="small"><a href="#/advisories/${a.run.id}">${esc(a.run.title)}</a> · ${esc(d.reason || "")}</div>
+    ${itemButtons(a, `<a href="#/approvals" class="small" style="align-self:center">Details</a>`)}</div>`;
+}
+
+function envCard(env, wls) {
+  return `<div class="env"><div class="env-head"><b>${esc(env.label)}</b>${env.error ? chip("c-red", "unreachable") : chip("c-green", "connected")}</div>
+    <div class="small">${esc(env.provider || env.kind)} · ${esc(env.kind)} · ${plural(wls.length, "workload")}</div>
+    ${env.error ? `<div class="err">${esc(env.error)}</div>` : ""}</div>`;
+}
+
+function emptyAdvisories() {
+  return `<div class="empty">No advisories yet. PatchPilot picks up every advisory that lands in the feed and decides what to do for each affected workload.
+    ${me.mayAct ? "Add one by id (CVE-… or GHSA-…) at the top" + (S.fleet?.demo ? ", or pick a scenario from the Demo menu." : ".") : ""}</div>`;
+}
+
+// ----------------------------------------------------------------- pages
+const SKELETON = {
+  overview: `<div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <section><div class="sec-head"><h2>Needs your decision</h2><a href="#/approvals" class="small">All approvals →</a></div><div id="ov-appr" class="items"></div></section>
+      <section><div class="sec-head"><h2>Latest advisories</h2><a href="#/advisories" class="small">All advisories →</a></div><div id="ov-runs"></div></section>
+    </div>
+    <section><div class="sec-head"><h2>Environments</h2><a href="#/fleet" class="small">Fleet →</a></div><div id="ov-envs" class="envs"></div></section>`,
+  advisories: `<div class="cols"><section><h2>Advisories</h2><div id="adv-list"></div></section>
+    <section><div id="adv-head"></div><div class="tabs" id="adv-tabs"></div><div id="adv-body"></div></section></div>`,
+  approvals: `<div id="appr" class="items"></div>`,
+  audit: `<section><div class="sec-head"><h2>Who did what</h2><span class="small">Approvals, rejections, triggers and resets. Never cleared by a demo reset.</span></div><div id="audit"></div></section>`,
+  fleet: `<div class="envs" id="fl-envs"></div>
+    <section><div class="sec-head"><h2>Workloads</h2><input type="search" id="fl-filter" placeholder="Filter by name, environment, image…"></div><div id="fl-table"></div></section>`,
+};
+
+function renderOverview() {
+  const f = S.fleet, wls = f.workloads, envs = f.environments;
+  const exploitable = wls.filter((w) => w.probes.some((p) => p.result === "VULNERABLE")).length;
+  const probed = wls.some((w) => w.probes.length);
+  const items = S.runs.flatMap((r) => r.items);
+  const needs = items.filter((i) => i.status === "awaiting_approval").length, sched = items.filter((i) => i.status === "queued").length;
+  const resolved = items.filter((i) => i.status === "done").length, proposed = items.filter((i) => i.status === "proposed").length;
+  const down = envs.filter((e) => e.error).length;
+  const kpi = (href, tone, v, label, sub) => `<a class="kpi ${tone}" href="${href}"><div class="kpi-v">${v}</div><div class="kpi-l">${label}</div><div class="small">${sub}</div></a>`;
+  set("kpis", [
+    kpi("#/fleet", down ? "amber" : "", wls.length, "Workloads", `across ${plural(envs.length, "environment")}${down ? ` · ${down} unreachable` : ""}`),
+    kpi("#/fleet", "", wls.filter((w) => w.internet_exposed).length, "Internet-facing", "reachable from outside"),
+    kpi("#/fleet", exploitable ? "red" : probed ? "green" : "", exploitable, "Exploitable now", probed ? "from the latest exploit checks" : "no exploit checks run yet"),
+    kpi("#/approvals", needs ? "amber" : "", needs, "Waiting for you", sched ? `plus ${sched} scheduled for maintenance` : "approvals and rejections"),
+    kpi("#/advisories", resolved ? "green" : "", resolved, "Resolved", proposed ? `plus ${proposed} ${proposed === 1 ? "fix" : "fixes"} proposed for review` : `across ${S.runs.length} ${S.runs.length === 1 ? "advisory" : "advisories"}`),
+  ].join(""));
+  set("ov-appr", S.approvals.slice(0, 4).map(approvalRow).join("")
+    || `<div class="empty">Nothing is waiting for you. Fixes that need a human show up here.</div>`);
+  set("ov-runs", S.runs.length ? `<div class="table-wrap"><table><thead><tr><th>Advisory</th><th>Severity</th><th>Status</th><th class="hide-sm">Workloads</th><th class="hide-sm">Started</th></tr></thead><tbody>
+    ${S.runs.slice(0, 8).map((r) => `<tr class="link" data-href="#/advisories/${r.id}"><td><b>${esc(r.title)}</b></td><td>${sevChip(r.severity)}</td>
+      <td>${statusChip(r.status)}</td><td class="hide-sm">${r.items.length}</td><td class="hide-sm small">${ago(r.started)}</td></tr>`).join("")}
+    </tbody></table></div>` : emptyAdvisories());
+  set("ov-envs", envs.map((e) => envCard(e, wls.filter((w) => w.target === e.name))).join("") || `<div class="empty">No environments in fleet.yaml</div>`);
+}
+
+function renderAdvisories() {
+  const r = route();
+  set("adv-list", S.runs.map((x) => `<a class="run ${x.id === view.run ? "sel" : ""}" href="#/advisories/${x.id}">
+      <div class="item-head"><b>${esc(x.title)}</b> ${sevChip(x.severity)} ${statusChip(x.status)}</div>
+      <div class="small">${esc(x.summary)}</div>
+      <div class="small">${ago(x.started)} · ${plural(x.items.length, "workload")}</div></a>`).join("") || emptyAdvisories());
+  const detail = S.details.get(view.run);
+  if (!detail) {
+    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what PatchPilot decided for each workload.</div>`);
+    set("adv-tabs", ""); set("adv-body", "");
+    return;
+  }
+  const { run, items, events } = detail, sev = S.runs.find((x) => x.id === run.id)?.severity;
+  set("adv-head", `<div class="item-head"><h1 style="margin:0;font-size:20px">${esc(run.title)}</h1> ${sevChip(sev)} ${statusChip(run.status)}</div>
+    <div>${esc(run.summary)}</div><div class="small">Started ${time(run.started)}${run.outcome ? " · " + esc(run.outcome) : ""}</div>`);
+  set("adv-tabs", ["decisions", "timeline"].map((t) => `<button data-tab="${t}" class="${view.tab === t ? "on" : ""}">${t === "decisions" ? `Decisions (${items.length})` : "Timeline"}</button>`).join(""));
+  if (view.tab === "decisions") {
+    set("adv-body", `<div class="items">${items.map((it) => itemCard(it, events.filter((e) => e.item_id === it.id), items.length)).join("")
+      || `<div class="empty">${esc(run.outcome || "Working…")}</div>`}</div>`);
+    return;
+  }
+  const sel = items.find((i) => i.id === view.item);
+  const shown = sel ? events.filter((e) => e.item_id === sel.id || !e.item_id) : events;
+  const open = new Set([...document.querySelectorAll("#adv-body details[open]")].map((d) => d.dataset.ev));
+  const scroll = new Map([...document.querySelectorAll("#adv-body details[open] pre")].map((el) => [el.parentElement.dataset.ev, el.scrollTop]));
+  set("adv-body", `${sel ? `<div class="small" style="margin-bottom:8px">Showing steps for <b>${esc(sel.workload.name)}</b> · <a href="#" data-steps="">show all</a></div>` : ""}
+    <div class="events">${shown.map((e) => {
+      const body = [e.detail, e.data ? JSON.stringify(e.data, null, 2) : ""].filter(Boolean).join("\n\n");
+      return `<div class="ev"><span class="t">${time(e.ts)}</span><span class="s st-${e.status}" title="${esc(e.step)}">${esc(STEP[e.step] || e.step)}</span>
+        ${body ? `<details data-ev="${e.id}"${open.has(String(e.id)) ? " open" : ""}><summary>${esc(e.title)}</summary><pre>${esc(body)}</pre></details>` : `<span>${esc(e.title)}</span>`}</div>`;
+    }).join("")}</div>`);
+  for (const [id, top] of scroll) { const el = document.querySelector(`#adv-body details[data-ev="${id}"] pre`); if (el) el.scrollTop = top; }
+}
+
+function renderApprovals() {
+  set("appr", S.approvals.map(approvalCard).join("")
+    || `<section><div class="empty">Nothing is waiting for you. When policy says a fix needs a human, for example a virtual patch or a fix the model could not fully review, it shows up here.</div></section>`);
+}
+
+function renderFleet() {
+  const f = S.fleet, q = view.filter.trim().toLowerCase();
+  set("fl-envs", f.environments.map((e) => envCard(e, f.workloads.filter((w) => w.target === e.name))).join(""));
+  const env = Object.fromEntries(f.environments.map((e) => [e.name, e.label]));
+  const rows = f.workloads.filter((w) => !q || [w.name, w.target, env[w.target], w.image, w.repo, w.provider, w.region]
+    .some((v) => String(v || "").toLowerCase().includes(q)));
+  set("fl-table", rows.length ? `<div class="table-wrap"><table class="stack"><thead><tr><th>Workload</th><th>Environment</th><th>Exposure</th>
+    <th class="hide-sm">Image</th><th class="hide-sm">Repository</th><th>Exploit check</th></tr></thead><tbody>
+    ${rows.map((w) => `<tr><td><b>${esc(w.name)}</b></td><td>${esc(env[w.target] || w.target)}<div class="small">${esc(w.provider)}${w.region ? " · " + esc(w.region) : ""}</div></td>
+      <td>${exposureChip(w)}<div class="small">${esc(w.exposure)}</div></td><td class="hide-sm small">${esc(tag(w.image))}</td>
+      <td class="hide-sm small">${esc(w.repo || "not linked")}</td><td>${w.probes.map(probeChip).join(" ") || `<span class="small">not checked</span>`}</td></tr>`).join("")}
+    </tbody></table></div>` : `<div class="empty">${q ? "No workload matches the filter." : "No workloads discovered."}</div>`);
+}
+
+function renderAudit() {
+  set("audit", S.audit.length ? `<div class="table-wrap"><table class="stack"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead><tbody>
+    ${S.audit.map((a) => `<tr><td class="small">${new Date(a.ts * 1000).toLocaleString([], {hour12: false})}</td><td><b>${esc(a.actor)}</b></td>
+      <td>${esc(a.action)}</td><td>${esc(a.target || "")}</td><td class="small">${esc(a.detail || "")}</td></tr>`).join("")}
+    </tbody></table></div>` : `<div class="empty">Nothing recorded yet.</div>`);
+}
+
+let page = null;
+function render() {
+  if (!S.fleet) return;
+  const r = route();
+  if (page !== r.name) { page = r.name; last.clear(); $("#page").innerHTML = SKELETON[r.name]; if (r.name === "fleet") $("#fl-filter").value = view.filter; }
+  document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === r.name));
+  $("#title").textContent = PAGES[r.name];
+  document.title = `${PAGES[r.name]} · PatchPilot`;
+  const needs = S.approvals.filter((a) => a.status === "awaiting_approval").length;
+  $("#badge").hidden = !needs; $("#badge").textContent = needs;
+  const llm = S.fleet.llm;
+  set("llm", `Model: ${esc(llm.providers)}${llm.mode === "cache" ? " (cached answers only)" : ""}`);
+  set("sovereign", llm.sovereign
+    ? chip("c-green", "Sovereign · 0 prompts left our infrastructure", `No hosted model API is configured. ${llm.local_calls} model call(s) since start, all on our own infrastructure.`)
+    : chip("c-amber", `Hosted model allowed: ${llm.hosted_calls} prompt(s) sent out`, `Hosted providers: ${llm.hosted_providers.join(", ") || "none now"}. Prompts to them are redacted (${llm.redactions} redaction(s) so far).`));
+  $("#demo").hidden = !S.fleet.demo || !me.mayAct;
+  document.querySelectorAll(".act-only").forEach((el) => { el.hidden = !me.mayAct; });
+  $("#signout").hidden = me.auth !== "token";
+  set("me", me.auth === "none" ? "No login (demo)" : `Signed in as <b>${esc(me.user)}</b>${me.mayAct ? "" : " · view only"}`);
+  set("demo-list", S.scenarios.map((s) => `<button data-scenario="${esc(s.name)}"><b>${esc(s.title)}${s.triggered ? " · already run" : ""}</b><span class="small">${esc(s.summary)}</span></button>`).join("")
+    + `<div class="small">Scenarios publish a canned advisory into the feed. Reset with scripts/reset_demo.sh.</div>`);
+  if (r.name === "advisories" && view.item && !view.scrolled) {
+    const el = document.getElementById(`item-${view.item}`);
+    if (el) { el.scrollIntoView({ block: "center" }); view.scrolled = true; }
+  }
+  ({ overview: renderOverview, advisories: renderAdvisories, approvals: renderApprovals, fleet: renderFleet, audit: renderAudit })[r.name]();
+}
+
+// ------------------------------------------------------------------ data
+let busy = false;
+async function tick() {
+  if (busy || !token) return;
+  busy = true;
+  try {
+    const [fleet, runs, who] = await Promise.all([api("/api/fleet"), api("/api/runs"), api("/api/me")]);
+    S.fleet = fleet; S.runs = runs;
+    Object.assign(me, { user: who.user, mayAct: who.may_act, auth: who.auth });
+    S.scenarios = fleet.demo ? await api("/api/scenarios") : [];
+    signedIn(); $("#conn").hidden = true;
+    const newer = view.followAfter !== null && runs.find((x) => x.id > view.followAfter);
+    if (newer) { view.followAfter = null; view.item = null; history.replaceState(null, "", `#/advisories/${newer.id}`); }
+    const r = route();
+    if (r.name === "advisories") {
+      view.run = r.arg ?? (runs.some((x) => x.id === view.run) ? view.run : runs[0]?.id ?? null);
+    }
+    S.audit = route().name === "audit" ? await api("/api/audit") : S.audit;
+    const want = new Set(runs.filter((x) => x.items.some((i) => WAITING.includes(i.status))).map((x) => x.id));
+    if (r.name === "advisories" && view.run !== null) want.add(view.run);
+    const fetched = await Promise.all([...want].map((id) => api(`/api/runs/${id}`)));
+    S.details = new Map(fetched.map((d) => [d.run.id, d]));
+    const sev = Object.fromEntries(runs.map((x) => [x.id, x.severity]));
+    S.approvals = fetched.flatMap((d) => d.items.filter((i) => WAITING.includes(i.status))
+      .map((i) => ({ ...i, run: d.run, severity: sev[d.run.id], events: d.events.filter((e) => e.item_id === i.id) })))
+      .sort((a, b) => (a.status !== "awaiting_approval") - (b.status !== "awaiting_approval")
+        || (SEV_ORDER[a.severity] ?? 5) - (SEV_ORDER[b.severity] ?? 5) || b.run.id - a.run.id || (a.rank ?? 999) - (b.rank ?? 999));
+    render();
+  } catch (e) {
+    if (!(e instanceof SignedOut)) { console.error(e); if (S.fleet) $("#conn").hidden = false; }
+  } finally { busy = false; }
+}
+
+// --------------------------------------------------------------- actions
+function toast(text, bad = false) {
+  const el = document.createElement("div");
+  el.className = "toast" + (bad ? " bad" : "");
+  el.textContent = text;
+  $("#toasts").append(el);
+  setTimeout(() => el.remove(), 5000);
+}
+
+function confirmDialog(text, yes) {
+  const dlg = $("#confirm");
+  $("#confirm-text").textContent = text;
+  $("#confirm-yes").textContent = yes;
+  dlg.showModal();
+  return new Promise((resolve) => {
+    const done = (v) => { dlg.close(); $("#confirm-yes").onclick = $("#confirm-no").onclick = null; resolve(v); };
+    $("#confirm-yes").onclick = () => done(true);
+    $("#confirm-no").onclick = () => done(false);
+    dlg.oncancel = () => done(false);
+  });
 }
 
 document.addEventListener("click", async (ev) => {
-  const el = ev.target.closest("[data-scenario],[data-run],[data-item],[data-approve],[data-reject],#probe,#refresh");
+  const row = ev.target.closest("tr[data-href]");
+  if (row && !ev.target.closest("a,button")) { location.hash = row.dataset.href; return; }
+  const el = ev.target.closest("[data-scenario],[data-approve],[data-reject],[data-tab],[data-steps],#probe,#refresh,#signout");
   if (!el) return;
+  if (el.tagName === "A") ev.preventDefault();
   try {
-    if (el.dataset.scenario) { await api(`/api/scenarios/${el.dataset.scenario}`, { method: "POST" }); selectedRun = null; await loadScenarios(); }
-    else if (el.dataset.approve) { el.disabled = true; await api(`/api/items/${el.dataset.approve}/approve`, { method: "POST" }); }
-    else if (el.dataset.reject) { el.disabled = true; await api(`/api/items/${el.dataset.reject}/reject`, { method: "POST" }); }
-    else if (el.dataset.run) { selectedRun = Number(el.dataset.run); selectedItem = null; }
-    else if (el.dataset.item) { const id = Number(el.dataset.item); selectedItem = selectedItem === id ? null : id; }
-    else if (el.id === "probe") { el.disabled = true; el.textContent = "Probing…"; await api("/api/probe", { method: "POST" }); el.disabled = false; el.textContent = "Probe fleet"; }
-    else if (el.id === "refresh") { await loadFleet(true); }
+    if (el.dataset.scenario) {
+      $("#demo").open = false;
+      const res = await api(`/api/scenarios/${el.dataset.scenario}`, { method: "POST" });
+      view.followAfter = S.runs[0]?.id ?? 0;
+      toast(`Published ${res.advisory} to the feed. PatchPilot is on it.`);
+      location.hash = "#/advisories";
+    } else if (el.dataset.approve) {
+      el.disabled = true;
+      await api(`/api/items/${el.dataset.approve}/approve`, { method: "POST" });
+      toast(`Approved: ${el.dataset.what} on ${el.dataset.name}.`);
+    } else if (el.dataset.reject) {
+      if (!await confirmDialog(`Reject "${el.dataset.what}" on ${el.dataset.name}? Nothing is changed and it is marked blocked, under your name.`, "Reject")) return;
+      el.disabled = true;
+      await api(`/api/items/${el.dataset.reject}/reject`, { method: "POST" });
+      toast(`Rejected: ${el.dataset.what} on ${el.dataset.name}.`);
+    } else if (el.dataset.tab) {
+      view.tab = el.dataset.tab;
+    } else if (el.dataset.steps !== undefined) {
+      view.item = el.dataset.steps ? Number(el.dataset.steps) : null;
+      view.tab = "timeline";
+    } else if (el.id === "probe") {
+      el.disabled = true; el.textContent = "Checking…";
+      const out = await api("/api/probe", { method: "POST" });
+      const bad = out.filter((p) => p.result === "VULNERABLE").length;
+      toast(out.length ? `${plural(out.length, "exploit check")} run, ${bad} exploitable.` : "No workload carries a package with a known exploit check.", bad > 0);
+      el.disabled = false; el.textContent = "Run exploit checks";
+    } else if (el.id === "refresh") {
+      await api("/api/fleet?refresh=true");
+      toast("Fleet rediscovered.");
+    } else if (el.id === "signout") {
+      signOut(); return;
+    }
+    render();
     await tick();
-  } catch (e) { alert(e.message); el.disabled = false; }
+  } catch (e) {
+    if (!(e instanceof SignedOut)) toast(e.message, true);
+    el.disabled = false;
+    if (el.id === "probe") el.textContent = "Run exploit checks";
+  }
+});
+
+document.addEventListener("click", (ev) => {      // close the demo menu on any click outside it
+  if (!ev.target.closest("#demo")) $("#demo").open = false;
+});
+
+document.addEventListener("input", (ev) => {
+  if (ev.target.id === "fl-filter") { view.filter = ev.target.value; render(); }
+});
+
+window.addEventListener("hashchange", () => {
+  const r = route();
+  if (r.name === "advisories" && r.arg !== null && r.arg !== view.run) { view.run = r.arg; view.item = null; }
+  render();
+  tick();
 });
 
 $("#add-advisory").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const id = $("#advisory-id").value.trim();
   if (!id) return;
+  const btn = ev.target.querySelector("button");
+  btn.disabled = true;
   try {
-    await api(`/api/advisories/${encodeURIComponent(id)}`, { method: "POST" });
-    $("#advisory-id").value = ""; selectedRun = null; await tick();
-  } catch (e) { alert(e.message); }
+    const res = await api(`/api/advisories/${encodeURIComponent(id)}`, { method: "POST" });
+    $("#advisory-id").value = "";
+    view.followAfter = S.runs[0]?.id ?? 0;
+    toast(`Fetched ${res.advisory} from OSV. PatchPilot is on it.`);
+    location.hash = "#/advisories";
+  } catch (e) {
+    if (!(e instanceof SignedOut)) toast(e.message, true);
+  } finally { btn.disabled = false; }
 });
 
-if (hash.get("run")) selectedRun = Number(hash.get("run"));
-if (hash.get("item")) selectedItem = Number(hash.get("item"));
+$("#login-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  token = $("#login-token").value.trim();
+  $("#login-err").textContent = "";
+  try {
+    await api("/api/fleet");
+    store.set(token);
+    $("#login-token").value = "";
+    await tick();
+  } catch (e) {
+    if (!(e instanceof SignedOut)) $("#login-err").textContent = `Could not reach the agent: ${e.message}`;
+  }
+});
 
-async function tick() {
-  if (busy) return;
-  busy = true;
-  try { await Promise.all([loadRuns().then(loadRun), loadFleet()]); } catch (e) { console.error(e); }
-  busy = false;
-}
-loadMe().then(loadScenarios).catch(console.error);
-tick();
+if (token) tick(); else signOut();
 setInterval(tick, 2000);
 </script>
 </body>
