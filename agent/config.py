@@ -18,8 +18,10 @@ CACHE_DIR = Path(os.environ.get("PP_CACHE_DIR", Path(__file__).resolve().parent 
 DB_PATH = Path(os.environ.get("PP_DB", STATE_DIR / "decisions.sqlite"))
 
 # LLM
-# ollama    = open-weight model on our own hardware (the hackathon setup)
-# anthropic = Claude through the Anthropic API, for development and testing only
+# One provider, or a comma-separated fallback chain tried in order, e.g.
+# "ollama,deepseek". Known: ollama (open-weight model on our own hardware, the
+# hackathon setup), openai, anthropic, gemini, deepseek, kimi, mistral,
+# openai-compatible. Per-provider settings are in agent/providers.py.
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:14b")
@@ -36,7 +38,3 @@ HEALTH_TIMEOUT = float(os.environ.get("PP_HEALTH_TIMEOUT", "60"))
 ROLLOUT_TIMEOUT = float(os.environ.get("PP_ROLLOUT_TIMEOUT", "120"))
 
 FEED_POLL_SECONDS = float(os.environ.get("FEED_POLL_SECONDS", "2"))
-
-
-def model_name() -> str:
-    return ANTHROPIC_MODEL if LLM_PROVIDER == "anthropic" else OLLAMA_MODEL

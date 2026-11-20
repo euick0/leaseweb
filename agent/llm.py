@@ -1,4 +1,7 @@
-"""Ollama client with structured output, one retry, and a per-key answer cache.
+"""Structured model calls with one retry, a provider fallback chain, and a per-key answer cache.
+
+The providers themselves (Ollama, OpenAI-compatible APIs, Anthropic) are in
+agent/providers.py.
 
 The cache is the stage safety net: every valid live answer is written to
 agent/cache/<kind>/<key>.json, and when the model is slow, down, or returns
@@ -13,16 +16,14 @@ import re
 import time
 from typing import Optional, Type, TypeVar
 
-import requests
 from pydantic import BaseModel, ValidationError
 
-from . import config
+from . import config, providers
+from .providers import LLMUnavailable  # noqa: F401  (re-exported)
 
 T = TypeVar("T", bound=BaseModel)
 
 
-class LLMUnavailable(RuntimeError):
-    pass
 
 
 def _cache_path(kind: str, key: str):
@@ -46,65 +47,26 @@ def cache_put(kind: str, key: str, answer: BaseModel, model: str) -> None:
                                 "answer": answer.model_dump()}, indent=2) + "\n")
 
 
+def describe() -> str:
+    """The provider chain as shown to operators, e.g. "ollama:qwen2.5:14b → deepseek:deepseek-chat"."""
+    return " → ".join(f"{p.name}:{p.model}" for p in providers.chain())
+
+
+def complete(system: str, user: str, schema: Type[T], timeout: Optional[float] = None) -> tuple[T, str]:
+    """One structured call, trying each configured provider in order until one answers.
+    Returns (answer, "provider:model"). Raises LLMUnavailable or ValidationError."""
+    errors = []
+    for p in providers.chain():
+        try:
+            return p.chat(system, user, schema, timeout or config.LLM_TIMEOUT), f"{p.name}:{p.model}"
+        except LLMUnavailable as exc:
+            errors.append(f"{p.name}: {exc}")
+    raise LLMUnavailable("; ".join(errors) or "no LLM provider configured (LLM_PROVIDER)")
+
+
 def chat(system: str, user: str, schema: Type[T], timeout: Optional[float] = None) -> T:
     """One structured call to the configured model. Raises LLMUnavailable or ValidationError."""
-    if config.LLM_PROVIDER == "anthropic":
-        return _chat_anthropic(system, user, schema, timeout)
-    return _chat_ollama(system, user, schema, timeout)
-
-
-def _chat_anthropic(system: str, user: str, schema: Type[T], timeout: Optional[float]) -> T:
-    """Claude with structured output: the SDK validates the answer against the schema.
-    Server-side fallback re-runs a declined request on another model; a refusal that
-    survives the fallback counts as "model unavailable", like a down Ollama."""
-    import anthropic
-
-    client = anthropic.Anthropic(timeout=timeout or config.LLM_TIMEOUT, max_retries=2)
-    try:
-        resp = client.beta.messages.parse(
-            model=config.ANTHROPIC_MODEL,
-            max_tokens=16000,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            output_format=schema,
-            output_config={"effort": config.ANTHROPIC_EFFORT},
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-        )
-    except anthropic.BadRequestError as exc:
-        raise LLMUnavailable(f"bad request: {exc.message}") from exc
-    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
-        raise LLMUnavailable(f"Anthropic credentials rejected: {exc.message}") from exc
-    except anthropic.APIStatusError as exc:
-        raise LLMUnavailable(f"Anthropic API error {exc.status_code}: {exc.message}") from exc
-    except anthropic.APIConnectionError as exc:
-        raise LLMUnavailable(f"Anthropic API not reachable: {exc}") from exc
-    u = resp.usage
-    print(f"[llm] {resp.model} in={u.input_tokens} out={u.output_tokens} stop={resp.stop_reason}", flush=True)
-    if resp.stop_reason == "refusal":
-        raise LLMUnavailable(f"model declined ({getattr(resp.stop_details, 'category', None)})")
-    if resp.parsed_output is None:
-        raise LLMUnavailable(f"no structured answer (stop_reason {resp.stop_reason})")
-    return resp.parsed_output
-
-
-def _chat_ollama(system: str, user: str, schema: Type[T], timeout: Optional[float]) -> T:
-    body = {
-        "model": config.OLLAMA_MODEL,
-        "messages": [{"role": "system", "content": system},
-                     {"role": "user", "content": user}],
-        "format": schema.model_json_schema(),
-        "stream": False,
-        "options": {"temperature": 0, "num_ctx": 16384},
-    }
-    try:
-        resp = requests.post(f"{config.OLLAMA_URL}/api/chat", json=body,
-                             timeout=timeout or config.LLM_TIMEOUT)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        raise LLMUnavailable(str(exc)) from exc
-    content = resp.json().get("message", {}).get("content", "")
-    return schema.model_validate_json(content)
+    return complete(system, user, schema, timeout)[0]
 
 
 def ask(kind: str, key: str, system: str, user: str, schema: Type[T],
@@ -118,8 +80,8 @@ def ask(kind: str, key: str, system: str, user: str, schema: Type[T],
     if config.LLM_MODE == "live":
         for attempt in range(2):
             try:
-                answer = chat(system, user, schema, timeout)
-                cache_put(kind, key, answer, config.model_name())
+                answer, model = complete(system, user, schema, timeout)
+                cache_put(kind, key, answer, model)
                 return answer, "live"
             except ValidationError as exc:
                 errors.append(f"attempt {attempt + 1}: invalid output ({exc.error_count()} errors)")

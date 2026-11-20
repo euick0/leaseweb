@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, db, feed, fleet, pipeline, probes
+from . import config, db, feed, fleet, llm, pipeline, probes
 
 STATIC = Path(__file__).resolve().parent / "static"
 _run_lock = threading.Lock()
@@ -59,7 +59,8 @@ def get_fleet(refresh: bool = False):
     latest = {}
     for p in db.latest_probes():
         latest.setdefault(p["workload_id"], []).append(p)
-    return {"environments": fl.environments(),
+    return {"llm": {"providers": llm.describe(), "mode": config.LLM_MODE},
+            "environments": fl.environments(),
             "workloads": [{**w.model_dump(), "probes": latest.get(w.id, [])} for w in workloads]}
 
 

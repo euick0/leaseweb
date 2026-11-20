@@ -265,4 +265,4 @@ def vet(adv: dict, eco: Ecosystem, name: str, old_v: str, new_v: str, log: LogFn
                      reasons=reasons, flags=flags, reviews=reviews, files_changed=len(changed),
                      files_reviewed=len(reviews),
                      sha256=sha256(new_bin) if new_bin.exists() else None,
-                     model=config.model_name() if reviews else None)
+                     model=llm.describe() if reviews else None)

@@ -77,7 +77,7 @@ h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacin
 <header>
   <div>
     <h1>PatchPilot</h1>
-    <div class="sub">One advisory in, one proven decision per workload out · open model, own hardware</div>
+    <div class="sub">One advisory in, one proven decision per workload out · <span id="llm">model</span></div>
   </div>
   <div class="actions" id="scenarios"></div>
   <div class="actions">
@@ -132,6 +132,7 @@ async function loadScenarios() {
 
 async function loadFleet(refresh = false) {
   const f = await api("/api/fleet" + (refresh ? "?refresh=true" : ""));
+  $("#llm").textContent = `model: ${f.llm.providers}` + (f.llm.mode === "cache" ? " (cached answers only)" : "");
   $("#fleet").innerHTML = f.environments.map((env) => {
     const wls = f.workloads.filter((w) => w.target === env.name);
     return `<div class="env">
