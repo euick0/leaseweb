@@ -17,7 +17,7 @@
   "references": [{"type": "ADVISORY", "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"}],
   "database_specific": {
     "severity": "CRITICAL",
-    "patchpilot": {
+    "lighthouse": {
       "target_version": "2.17.1",
       "bump_together": ["org.apache.logging.log4j:log4j-api"],
       "grep": ["org.apache.logging.log4j", "LOG.info", "LOG.error"],

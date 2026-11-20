@@ -11,7 +11,7 @@ registry publishes, before anything is vetted or built.
 A verified download is recorded in checksums.lock, so the vetter's
 fail-closed checksum check covers it from then on, and a later download that
 differs is caught. Mirrors (Nexus, Artifactory, devpi, Athens) are set in
-patchpilot.yaml:
+lighthouse.yaml:
 
   registries:
     maven: https://nexus.example.com/repository/maven-public

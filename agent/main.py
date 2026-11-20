@@ -1,4 +1,4 @@
-"""PatchPilot API and dashboard.
+"""Lighthouse API and dashboard.
 
   uv run uvicorn agent.main:app --host 127.0.0.1 --port 8000
 

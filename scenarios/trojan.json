@@ -11,7 +11,7 @@
   ],
   "database_specific": {
     "severity": "HIGH",
-    "patchpilot": {
+    "lighthouse": {
       "grep": ["acme_authutils", "X-Key-Id"],
       "probe": "keyid-traversal",
       "review_focus": ["keys.py"],
