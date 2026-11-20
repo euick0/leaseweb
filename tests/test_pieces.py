@@ -170,7 +170,7 @@ def test_review_body_carries_the_evidence():
     comp = Component(ecosystem="maven", group="org.apache.logging.log4j", name="log4j-core", version="2.14.1")
     proof = {"before": {"result": "VULNERABLE"}, "after": {"result": "SAFE", "via": "canary"}}
     body = pipeline._review_body({"id": "GHSA-1", "aliases": ["CVE-2021-44228"], "summary": "Log4Shell"},
-                                 wl, comp, "2.17.1", [comp], proof, False, "https://pp/#run=1&item=2")
+                                 wl, comp, "2.17.1", [(comp, "2.17.1")], proof, False, "https://pp/#run=1&item=2")
     assert "CVE-2021-44228" in body and "VULNERABLE → SAFE" in body and "CI/CD" in body and "#run=1&item=2" in body
 
 

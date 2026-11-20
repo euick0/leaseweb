@@ -80,7 +80,7 @@ def deterministic_checks(eco: Ecosystem, name: str, old_v: str, new_v: str) -> t
     for p in (new_bin, new_src):
         if not p.exists():
             flags.append(Flag(check="artifact", severity="hard", file=p.name,
-                              message=f"{p.name} is missing from the artifact store"))
+                              message=f"{p.name} is not in the artifact store and could not be fetched"))
     if flags:
         return flags, {}, {}
 
@@ -294,10 +294,15 @@ def vet(adv: dict, eco: Ecosystem, name: str, old_v: str, new_v: str, log: LogFn
                       f"have no model answer ({why})")
         log("warn", f"{name} {new_v}: {incomplete}", "\n".join(missing[:20]), {"unreviewed": missing[:50]})
 
-    # verdict
+    # verdict. An artifact that could not be fetched is not evidence of anything:
+    # the update simply was not checked (`unreviewed`, never patched unattended).
+    unavailable = [f for f in flags if f.check == "artifact"]
+    if unavailable:
+        missing = missing or [f.file for f in unavailable]
+        incomplete = "not vetted: " + "; ".join(f.message for f in unavailable)
     reasons: list[str] = []
     for f in flags:
-        if f.severity == "hard":
+        if f.severity == "hard" and f.check != "artifact":
             reasons.append(f"{f.check}: {f.message} ({f.file})")
     for r in reviews:
         if r.review.suspicious and r.review.confidence == "high":
@@ -306,7 +311,7 @@ def vet(adv: dict, eco: Ecosystem, name: str, old_v: str, new_v: str, log: LogFn
         verdict = "malicious"
     else:
         for f in flags:
-            if f.severity == "soft":
+            if f.severity == "soft" and f.check != "artifact":
                 reasons.append(f"{f.check}: {f.message} ({f.file})")
         for r in reviews:
             if r.review.suspicious:

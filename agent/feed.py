@@ -22,7 +22,7 @@ from . import config
 from .versions import compare
 
 # OSV ecosystem name -> PatchPilot ecosystem driver
-ECOSYSTEMS = {"Maven": "maven", "PyPI": "pypi"}
+ECOSYSTEMS = {"Maven": "maven", "PyPI": "pypi", "Go": "go"}
 
 
 def normalise(ecosystem: str, name: str) -> str:

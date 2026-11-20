@@ -23,7 +23,7 @@ import requests
 
 from . import config, feed, fleet, overrides, settings
 
-ECOSYSTEM_NAMES = {"maven": "Maven", "pypi": "PyPI"}
+ECOSYSTEM_NAMES = {"maven": "Maven", "pypi": "PyPI", "go": "Go"}
 
 
 class FilesFeed:

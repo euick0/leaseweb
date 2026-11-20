@@ -66,6 +66,24 @@ What each piece does:
 
 Missing a piece? Any slot also takes your own class as `kind: "module:Class"`, with the module placed in `plugins/`. `plugins/README.md` lists what each slot expects, and `plugins/example_jira.py` is a complete example.
 
+## Real repositories
+
+PatchPilot works on ordinary projects; the demo's vendored layout is only one of the layouts it reads.
+
+| Language | Reads | A fix changes | Releases vetted from |
+|----------|-------|---------------|----------------------|
+| Java | `pom.xml` (multi-module, `${properties}`, `<dependencyManagement>`) | the version where it is defined, in place; a version property shared by one release train (all of `com.fasterxml.jackson.*`) as a whole; a transitive or parent-managed package through a `<dependencyManagement>` override | Maven Central or your mirror: jar + sources jar, checked against `.sha256`/`.sha1` |
+| Python | `poetry.lock`, `uv.lock`, `Pipfile.lock`, else `requirements*.txt` and `pyproject.toml` pins | `name==version` where declared (extras, markers and comments kept); a transitive package is pinned in `requirements.txt`; `uv.lock`/`poetry.lock` refreshed with uv/poetry | PyPI or your index: wheel + sdist, checked against the index's SHA-256 |
+| Go | `go.mod` (direct and indirect) | `go get module@version` (go.mod + go.sum); without the toolchain, go.mod plus go.sum lines from the checksum database | the module proxy, checked against `sum.golang.org` like `go` does |
+
+With Syft installed, inventory reads the running image instead (every package, transitive ones included).
+
+Every package a fix moves is vetted first, not just the one in the advisory: the rest of a Maven release train, and the modules `go get` raises (found with a dry run on a copy of go.mod). After the change, PatchPilot compares the repository's packages before and after. If anything moved that was not vetted, the change is abandoned.
+
+A release that cannot be fetched or fully reviewed is `unreviewed`, never patched without a human. Real releases are larger than the demo's, so set `VET_BUDGET_SECONDS` (`.env.example`) to a few minutes. Log4j 2.14.1 → 2.17.1 from Maven Central (125 changed files) takes about 6 minutes with a hosted model and comes out clean.
+
+Not covered yet: Gradle, npm, PHP/Composer, and `[tool.poetry]` dependency tables (poetry.lock is read and refreshed). Exploit probes exist for the demo advisories; for other advisories the proof is a re-scan of the deployed image plus a health check.
+
 ## Settings page
 
 `/settings` (linked from the dashboard) shows what runs on the server (host load, memory and disk, the agent's workers and current rollout, Ollama and the models it has loaded, Docker containers, the fleet) and lets an admin change, without a restart:

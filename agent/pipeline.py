@@ -8,12 +8,13 @@ the live path: the result before, the result after.
 """
 from __future__ import annotations
 
+import re
 import threading
 import traceback
 from typing import Optional
 
-from . import (config, db, feed, fleet, inventory, matcher, mitigation, overrides, policy, probes, settings, triage,
-               vetter)
+from . import (config, db, feed, fleet, inventory, matcher, mitigation, overrides, policy, probes, registry, settings,
+               triage, vetter)
 from .builder import BuildError
 from .drivers.base import DriverError
 from .schemas import Component, Match, TriageResult, VetResult, Workload
@@ -84,8 +85,23 @@ def vet_key(eco: str, name: str, old: str, new: str) -> str:
     return f"{eco}:{name}:{old}->{new}@{sha}"
 
 
+def fetch_releases(comp: Component, new: str, log: Log) -> None:
+    """Bring the installed and the proposed release into the artifact store from the
+    real registry, checksum-verified. A failure is logged, not raised: the vetter then
+    finds the artifact missing and the verdict is `unreviewed` (never patched unattended)."""
+    for version in (comp.version, new):
+        try:
+            got = registry.fetch(comp, version)
+            if got:
+                log("vet", "info", f"Fetched {comp.coordinate} {version} from the registry (checksum verified)",
+                    ", ".join(got))
+        except Exception as exc:
+            log("vet", "warn", f"Could not fetch {comp.coordinate} {version}", str(exc)[:500])
+
+
 def vet_once(adv: dict, comp: Component, new: str, log: Log) -> tuple[VetResult, str]:
     """Vet comp -> new once per artifact; later workloads reuse the verdict."""
+    fetch_releases(comp, new, log)
     key = vet_key(comp.ecosystem, comp.name, comp.version, new)
     cached = db.vet_cache_get(key)
     if cached and cached["verdict"] != "unreviewed":      # an incomplete review is never reused: vet again
@@ -103,17 +119,38 @@ def vet_once(adv: dict, comp: Component, new: str, log: Log) -> tuple[VetResult,
     return result, key
 
 
-def _bump_set(fl: fleet.Fleet, adv: dict, wl: Workload, comp: Component, version: str) -> list[Component]:
-    """The fixed package plus packages released in lockstep with it (log4j-api with log4j-core)."""
-    out = [comp]
+def _bump_set(fl: fleet.Fleet, adv: dict, wl: Workload, comp: Component,
+              version: str) -> list[tuple[Component, str]]:
+    """Every (package, target version) the fix moves, each of which is vetted: the
+    fixed package, the advisory's `bump_together` (log4j-api with log4j-core), and
+    what the ecosystem moves with it: a pom.xml version property shared by a release
+    train (jackson-core with jackson-databind), or the modules `go get` raises."""
+    out = [(comp, version)]
     src = fl.source(wl)
-    together = set(feed.hints(adv).get("bump_together", []))
-    if src and together:
-        eco = fl.ecosystem(comp.ecosystem)
+    eco = fl.ecosystem(comp.ecosystem)
+    targets = {c: version for c in feed.hints(adv).get("bump_together", [])}
+    if src and hasattr(eco, "lockstep"):
+        try:
+            targets.update(dict(eco.lockstep(src.path, comp, version)))
+        except Exception as exc:                    # cannot tell what moves: the post-bump check still holds
+            print(f"[pipeline] lockstep for {comp.coordinate}: {exc}", flush=True)
+    if src and targets:
+        seen = {(comp.coordinate, comp.version)}
         for c in eco.components(src.path):
-            if c.coordinate in together and c.version != version:
-                out.append(c)
+            target = targets.get(c.coordinate)
+            if target and c.version != target and (c.coordinate, c.version) not in seen:
+                seen.add((c.coordinate, c.version))
+                out.append((c, target))
     return out
+
+
+def _unvetted_changes(before: list[Component], after: list[Component],
+                      vetted: list[tuple[Component, str]]) -> list[str]:
+    """Packages the change moved to a version that was not vetted."""
+    allowed = {(c.coordinate, t) for c, t in vetted}
+    old = {(c.coordinate, c.version) for c in before}
+    return sorted(f"{c.coordinate} {c.version}" for c in after
+                  if (c.coordinate, c.version) not in old and (c.coordinate, c.version) not in allowed)
 
 
 def priority(wl: Workload, t: TriageResult) -> tuple:
@@ -226,8 +263,8 @@ def _run(adv: dict, run_id: int, log: Log) -> None:
             vets[item_id] = None
             continue
         worst, keys = None, []
-        for comp in _bump_set(fl, adv, wl, m.component, m.fixed_version):
-            result, key = vet_once(adv, comp, m.fixed_version, Log(run_id, item_id))
+        for comp, target in _bump_set(fl, adv, wl, m.component, m.fixed_version):
+            result, key = vet_once(adv, comp, target, Log(run_id, item_id))
             keys.append(key)
             if worst is None or VERDICTS.index(result.verdict) > VERDICTS.index(worst.verdict):
                 worst = result
@@ -322,24 +359,37 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
 
     # every artifact must be the exact one that was vetted
     bump = _bump_set(fl, adv, wl, comp, version)
-    for c in bump:
-        key = vet_key(c.ecosystem, c.name, c.version, version)
+    for c, to in bump:
+        key = vet_key(c.ecosystem, c.name, c.version, to)
         cached = db.vet_cache_get(key)
         if not cached:
-            raise DriverError(f"{c.name} {version} has no vet verdict for this exact artifact ({key})")
+            raise DriverError(f"{c.name} {to} has no vet verdict for this exact artifact ({key})")
         if cached["verdict"] == "malicious":
-            raise DriverError(f"{c.name} {version} is vetted malicious")
+            raise DriverError(f"{c.name} {to} is vetted malicious")
 
     before = _probe(fl, adv, wl, probes.default_via(wl), log, "Before")
 
-    branch = f"patchpilot/{adv['id']}-{comp.name}-{version}".lower()
+    branch = f"patchpilot/{adv['id']}-{re.sub(r'[^a-z0-9._-]+', '-', comp.name.lower())}-{version}".lower()
     src.start_change(branch)
+    pins_before = eco.components(src.path)
     changed = []
-    for c in bump:
-        changed += eco.bump(src.path, c, version)
+    try:
+        for c, to in bump:
+            changed += eco.bump(src.path, c, to)
+    except Exception as exc:
+        src.abandon_change(branch)
+        raise DriverError(f"could not apply the fix to {src.name}: {exc}") from exc
+    unvetted = _unvetted_changes(pins_before, eco.components(src.path), bump)
+    if unvetted:
+        src.abandon_change(branch)
+        log("change", "fail", "The fix would move packages that were not vetted: change abandoned",
+            "\n".join(unvetted), {"unvetted": unvetted})
+        db.update_item(item["id"], status="failed", outcome=f"fix moves unvetted packages: {', '.join(unvetted)}"[:300])
+        return
+    changed = sorted(set(changed))
     sha = src.commit(f"Bump {comp.coordinate} {comp.version} -> {version} ({feed.title(adv)})\n\n"
                      f"{adv.get('summary', '')}\n\nVetted by PatchPilot: "
-                     + ", ".join(f"{c.name} {version}" for c in bump) + "\n")
+                     + ", ".join(f"{c.coordinate} {t}" for c, t in bump) + "\n")
     log("change", "ok", f"Commit {sha} on {src.name}:{branch}", "\n".join(changed), {"files": changed})
 
     try:
@@ -417,13 +467,13 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
                                                                   if before and after else ""))
 
 
-def _review_body(adv: dict, wl: Workload, comp: Component, version: str, bump: list[Component],
+def _review_body(adv: dict, wl: Workload, comp: Component, version: str, bump: list[tuple[Component, str]],
                  proof: Optional[dict], deployed: bool, link: str) -> str:
     """The pull request description: what, why, and the evidence."""
     lines = [f"**{feed.title(adv)}**: {adv.get('summary', '')}", "",
              f"- Service: `{wl.name}` in `{wl.target}` ({wl.provider})",
              f"- Package: `{comp.coordinate}` {comp.version} → **{version}**"
-             + (f" (with {', '.join(c.name for c in bump[1:])})" if len(bump) > 1 else ""),
+             + (f" (with {', '.join(f'{c.name} {t}' for c, t in bump[1:])})" if len(bump) > 1 else ""),
              f"- Update vetted by PatchPilot before the build (checksums, source match, diff review)"]
     if proof and proof.get("before") and proof.get("after"):
         lines.append(f"- Exploit probe: **{proof['before']['result']} → {proof['after']['result']}** "
