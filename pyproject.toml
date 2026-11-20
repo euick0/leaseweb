@@ -11,8 +11,10 @@ dependencies = [
     "pyyaml>=6.0",
     "docker>=7.1",
     "kubernetes>=31.0",
-    "anthropic>=2.0",          # optional: LLM_PROVIDER=anthropic for development
 ]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=2.0"]     # LLM_PROVIDER=anthropic; the other providers need no SDK
 
 [dependency-groups]
 dev = ["pytest>=8"]

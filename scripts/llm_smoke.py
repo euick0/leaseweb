@@ -2,8 +2,9 @@
 """One live triage call and one live diff review against the configured model,
 bypassing the cache, to check the setup and see the real token use.
 
-  LLM_PROVIDER=anthropic uv run scripts/llm_smoke.py
-  uv run scripts/llm_smoke.py                       # Ollama
+  uv run scripts/llm_smoke.py                                   # Ollama
+  LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=... uv run scripts/llm_smoke.py
+  LLM_PROVIDER=anthropic uv run --extra anthropic scripts/llm_smoke.py
 """
 import json
 import sys
@@ -27,7 +28,7 @@ m = Match(advisory_id=adv["id"], workload_id=wl.id, fixed_version="1.0.1", patch
 hits = ["app.py:22:            key_id = self.headers.get(\"X-Key-Id\", \"default\")",
         "app.py:24:                key = acme_authutils.load_key(key_id)"]
 
-print(f"provider={config.LLM_PROVIDER} model={config.model_name()}")
+print(f"providers: {llm.describe()}")
 t0 = time.time()
 result = llm.chat(triage.SYSTEM, triage._prompt(adv, wl, m, hits, None), triage.TriageResult)
 print(f"triage ({time.time() - t0:.1f}s): {result.model_dump_json(indent=2)}")
