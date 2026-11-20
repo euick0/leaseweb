@@ -83,7 +83,7 @@ def deterministic_checks(eco: Ecosystem, name: str, old_v: str, new_v: str) -> t
     sums_path = config.ARTIFACTS / "checksums.json"
     sums = json.loads(sums_path.read_text()) if sums_path.exists() else {}
     for p in (new_bin, new_src):
-        key = str(p.relative_to(config.ARTIFACTS))
+        key = p.relative_to(config.ARTIFACTS).as_posix()      # checksums.json uses "/" on every OS
         want, got = sums.get(key), sha256(p)
         if want is None:
             flags.append(Flag(check="checksum", severity="hard", file=p.name,
