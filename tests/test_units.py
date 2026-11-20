@@ -181,6 +181,30 @@ def test_policy_decisions():
     assert policy.decide(always, _wl(False), _triage(), True, _vet("clean"), False).decision == "auto"
 
 
+# ------------------------------------------------------------------ priority
+
+def test_most_critical_is_fixed_first():
+    from agent import pipeline
+
+    def row(name, exposed, sev, reachable=True):
+        wl = _wl(exposed).model_copy(update={"id": f"t/ns/{name}", "name": name})
+        return wl, _triage(severity_for_this_workload=sev, reachable=reachable)
+
+    rows = [row("low-exposed", True, "low"), row("critical-internal", False, "critical"),
+            row("high-exposed", True, "high"), row("high-internal", False, "high"),
+            row("high-unreachable", True, "high", reachable=False), row("medium", True, "medium")]
+    rows.sort(key=lambda r: pipeline.priority(*r))
+    assert [wl.name for wl, _ in rows] == ["critical-internal", "high-exposed", "high-internal",
+                                           "high-unreachable", "medium", "low-exposed"]
+
+
+def test_most_critical_advisory_runs_first():
+    from agent import feed
+    advs = [{"id": i, "database_specific": {"severity": s}} if s else {"id": i}
+            for i, s in [("a", "LOW"), ("b", None), ("c", "CRITICAL"), ("d", "moderate"), ("e", "HIGH")]]
+    assert [a["id"] for a in feed.by_severity(advs)] == ["c", "e", "d", "a", "b"]
+
+
 # ------------------------------------------------------- kubernetes discovery
 
 def _dep(name, labels, annotations=None, role=None):

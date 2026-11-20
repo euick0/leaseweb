@@ -81,6 +81,19 @@ def target_version(adv: dict, ecosystem: str, name: str) -> Optional[str]:
     return max(fixes, key=functools.cmp_to_key(compare)) if fixes else None
 
 
+SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MODERATE": 2, "MEDIUM": 2, "LOW": 3}
+
+
+def severity_rank(adv: dict) -> int:
+    """0 for critical up to 3 for low; advisories without a severity go last."""
+    return SEVERITY_ORDER.get(str(adv.get("database_specific", {}).get("severity", "")).upper(), 4)
+
+
+def by_severity(advisories: list[dict]) -> list[dict]:
+    """Most critical first; ties keep their feed order."""
+    return sorted(advisories, key=severity_rank)
+
+
 def title(adv: dict) -> str:
     aliases = [a for a in adv.get("aliases", []) if a.startswith("CVE-")]
     return aliases[0] if aliases else adv["id"]

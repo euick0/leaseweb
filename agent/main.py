@@ -27,7 +27,8 @@ _run_lock = threading.Lock()
 def _watch_feed(stop: threading.Event) -> None:
     while not stop.is_set():
         try:
-            for adv in feed.list_feed():
+            # several new advisories at once: the most critical runs first
+            for adv in feed.by_severity(feed.list_feed()):
                 if not db.advisory_seen(adv["id"]):
                     with _run_lock:
                         pipeline.run_advisory(adv)
