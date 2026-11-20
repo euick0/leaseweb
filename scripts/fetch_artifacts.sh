@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Hour 0: fill artifacts/maven/ (the local "upstream repository") from Maven Central.
 # Every jar is checked against Central's SHA-1 and its SHA-256 is recorded in
-# artifacts/checksums.json, which the vetter later trusts.
+# checksums.lock, which the vetter later trusts.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

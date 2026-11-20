@@ -18,10 +18,12 @@ environment (name upper-cased, "-" as "_"); the defaults are in PRESETS.
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
 from dataclasses import dataclass
+from urllib.parse import urlparse
 from typing import Optional, Protocol, Type, TypeVar
 
 import requests
@@ -238,6 +240,20 @@ def get(name: str) -> Provider:
 def chain() -> list[Provider]:
     """The providers in LLM_PROVIDER, in the order they are tried ("ollama,deepseek")."""
     return [get(n) for n in config.LLM_PROVIDER.split(",") if n.strip()]
+
+
+def hosted(p: Provider) -> bool:
+    """True when a call to this provider leaves our own infrastructure: anything that is
+    not a loopback or private address, or a bare or internal host name."""
+    url = getattr(p, "url", None) or getattr(p, "base_url", None)
+    host = (urlparse(url).hostname or "") if url else ""
+    if not host:
+        return True                       # SDK-managed endpoint (Anthropic) or nothing configured
+    try:
+        ip = ipaddress.ip_address(host)
+        return not (ip.is_loopback or ip.is_private)
+    except ValueError:
+        return "." in host and not host.endswith((".local", ".internal", ".lan", ".svc", ".cluster.local"))
 
 
 def reset() -> None:

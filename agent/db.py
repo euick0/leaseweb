@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS items (
     outcome       TEXT,
     pending       TEXT,                 -- JSON action awaiting approval
     proof         TEXT,                 -- JSON {level, before, after}
+    decided_by    TEXT,                 -- who approved or rejected it (from the API token)
     updated       REAL
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -90,6 +91,8 @@ def conn() -> sqlite3.Connection:
         _conn = sqlite3.connect(config.DB_PATH, check_same_thread=False)
         _conn.row_factory = sqlite3.Row
         _conn.executescript(SCHEMA)
+        if "decided_by" not in {r["name"] for r in _conn.execute("PRAGMA table_info(items)")}:
+            _conn.execute("ALTER TABLE items ADD COLUMN decided_by TEXT")      # log from before the column
     return _conn
 
 
@@ -178,13 +181,32 @@ def update_item(item_id: int, **fields) -> None:
     cols = ", ".join(f"{k} = ?" for k in fields)
     vals = tuple(_dump(v) if k in _JSON else v for k, v in fields.items())
     _exec(f"UPDATE items SET {cols}, updated = ? WHERE id = ?", (*vals, time.time(), item_id))
-    if "status" in fields and STATUS_HOOKS:
-        item = get_item(item_id)
-        for hook in STATUS_HOOKS:
-            try:
-                hook(item)
-            except Exception as exc:              # a broken notifier must never stop a rollout
-                print(f"[db] status hook {hook}: {type(exc).__name__}: {exc}", flush=True)
+    if "status" in fields:
+        _status_changed(item_id)
+
+
+def _status_changed(item_id: int) -> None:
+    if not STATUS_HOOKS:
+        return
+    item = get_item(item_id)
+    for hook in STATUS_HOOKS:
+        try:
+            hook(item)
+        except Exception as exc:                  # a broken notifier must never stop a rollout
+            print(f"[db] status hook {hook}: {type(exc).__name__}: {exc}", flush=True)
+
+
+def claim_item(item_id: int, from_statuses: tuple[str, ...], status: str, **fields) -> bool:
+    """Move an item to `status` only if it is still in one of `from_statuses`, in one
+    statement: of two decisions arriving together, exactly one wins."""
+    cols = "".join(f", {k} = ?" for k in fields)
+    marks = ", ".join("?" for _ in from_statuses)
+    cur = _exec(f"UPDATE items SET status = ?{cols}, updated = ? WHERE id = ? AND status IN ({marks})",
+                (status, *fields.values(), time.time(), item_id, *from_statuses))
+    if cur.rowcount != 1:
+        return False
+    _status_changed(item_id)
+    return True
 
 
 def get_item(item_id: int) -> Optional[dict]:

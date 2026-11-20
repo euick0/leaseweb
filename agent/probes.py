@@ -1,8 +1,9 @@
 """Safe exploit probes: the before/after signal for every action. A probe only
 sends requests through a Target driver, so the same probe works on any platform.
 
-log4shell  sends `${jndi:ldap://callback:1389/<token>}` in X-Api-Version and
-           asks the target's callback listener whether the token arrived. A
+log4shell  sends `${jndi:ldap://callback:1389/<token>}` in X-Api-Version and in
+           the URL path, and asks the target's callback listener whether a
+           token arrived. A
            connection means the lookup ran: VULNERABLE. No payload is ever
            served, so nothing executes.
 keyid-traversal
@@ -10,7 +11,8 @@ keyid-traversal
            marker is a harmless file placed in the image for this purpose; its
            fingerprint in the response means the path escaped the key
            directory: VULNERABLE.
-A 403 from the gateway means the request never reached the app: BLOCKED.
+A 403 from the gateway means the request never reached the app: BLOCKED (for
+log4shell only when both the header and the path variant were rejected).
 
 `via` says which path was probed: public (what the internet sees), internal
 (the workload's own service) or canary.
@@ -22,6 +24,7 @@ import secrets
 import threading
 import time
 from dataclasses import asdict, dataclass
+from urllib.parse import quote
 
 from .drivers.base import DriverError, Target
 from .schemas import Workload
@@ -48,24 +51,31 @@ def log4shell(target: Target, wl: Workload, via: str, wait: float = 5.0) -> Prob
         return ProbeResult("log4shell", wl.id, via, result, detail)
 
     with _lock:
-        token = "pp" + secrets.token_hex(6)
+        token, path_token = "pp" + secrets.token_hex(6), "pp" + secrets.token_hex(6)
         since = time.time() - 1
         r = target.http(wl, "/", {"X-Api-Version": f"${{jndi:ldap://callback:1389/{token}}}"}, via=via)
         if r.status == 0:
             return res("ERROR", r.body[:200])
-        if r.status == 403:
-            return res("BLOCKED", "gateway rejected the payload with 403")
+        # the same payload in the URL path: a rule that only looks at the header must not count as a block
+        in_path = target.http(wl, "/" + quote(f"${{jndi:ldap://callback:1389/{path_token}}}", safe=""), via=via)
+        if r.status == 403 and in_path.status == 403:
+            return res("BLOCKED", "gateway rejected the payload with 403, in the header and in the URL path")
         deadline = time.time() + wait
         while time.time() < deadline:
             try:
                 hits = target.callback_hits(wl, since)
             except (DriverError, ValueError) as exc:
                 return res("ERROR", f"callback listener unreachable: {exc}")
-            tagged = [h for h in hits if token in h.get("data", "")]
+            tagged = [h for h in hits if token in h.get("data", "") or path_token in h.get("data", "")]
             if tagged:
+                where = "URL path" if path_token in tagged[0].get("data", "") else "X-Api-Version header"
                 return res("VULNERABLE", f"the app opened a JNDI/LDAP connection to the callback listener "
-                                         f"from {tagged[0]['peer']} carrying the probe token")
+                                         f"from {tagged[0]['peer']} carrying the probe token ({where})")
             time.sleep(0.25)
+        if 403 in (r.status, in_path.status):
+            open_ = "URL path" if r.status == 403 else "header"
+            return res("SAFE", f"no callback within {wait:.0f}s, but the gateway only blocks part of the attack: "
+                               f"the payload in the {open_} got through (HTTP {min(r.status, in_path.status)})")
         return res("SAFE", f"HTTP {r.status}, no callback within {wait:.0f}s: the lookup did not run")
 
 

@@ -17,6 +17,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Optional
+from urllib.parse import unquote
 
 from agent.drivers.base import DriverError, HttpResult
 from agent.drivers.http import get
@@ -114,7 +115,7 @@ class LocalTarget:
     def _blocked(self, app: str, path: str, headers: dict) -> bool:
         query = path.split("?", 1)[1] if "?" in path else ""
         for var, rx in (r for rules in self.rules[app].values() for r in rules):
-            value = query if var == "$args" else next(
+            value = query if var == "$args" else path if var == "$request_uri" else next(
                 (v for k, v in headers.items() if "$http_" + k.lower().replace("-", "_") == var), "")
             if rx.search(value):
                 return True
@@ -130,7 +131,7 @@ class LocalTarget:
             return HttpResult(0, "no canary")
         if inst.port:
             return get(f"http://127.0.0.1:{inst.port}{path}", headers, timeout)
-        payload = headers.get("X-Api-Version", "")
+        payload = headers.get("X-Api-Version", "") + " " + unquote(path)     # the app logs both
         if "${jndi:" in payload and inst.log4shell_vulnerable:
             self.hits.append({"ts": time.time(), "peer": wl.name, "data": payload})
         return HttpResult(200, "ok\n")
@@ -172,6 +173,9 @@ class LocalTarget:
             nginx_unquoted = m.group(2).replace('\\"', '"').replace("\\\\", "\\")
             parsed.append((m.group(1), re.compile(nginx_unquoted, re.I)))
         self.rules[wl.name][key] = parsed
+
+    def remove_mitigation(self, wl: Workload, key: str) -> None:
+        self.rules[wl.name].pop(key, None)
 
     def clear_mitigations(self, wl: Workload) -> None:
         self.rules[wl.name] = {}

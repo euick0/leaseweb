@@ -17,6 +17,11 @@ The model then reviews the source diff file by file within a time budget,
 flagged and new files first, and answers one question per file: is this
 change consistent with a fix for the advisory, or does it add unrelated
 behaviour? Its evidence lines are checked against the diff before use.
+
+The review fails closed. Some files must be reviewed (see `_required`); a long
+diff is reviewed in parts, never cut. If the model is down, out of time, or has
+only a hand-written seed answer for one of them, the verdict is `unreviewed`,
+which the policy gate never patches without a human.
 """
 from __future__ import annotations
 
@@ -80,8 +85,7 @@ def deterministic_checks(eco: Ecosystem, name: str, old_v: str, new_v: str) -> t
         return flags, {}, {}
 
     # 1. checksums recorded when the artifact entered the store
-    sums_path = config.ARTIFACTS / "checksums.json"
-    sums = json.loads(sums_path.read_text()) if sums_path.exists() else {}
+    sums = json.loads(config.CHECKSUMS.read_text()) if config.CHECKSUMS.exists() else {}
     for p in (new_bin, new_src):
         key = p.relative_to(config.ARTIFACTS).as_posix()      # checksums.json uses "/" on every OS
         want, got = sums.get(key), sha256(p)
@@ -154,12 +158,44 @@ def deterministic_checks(eco: Ecosystem, name: str, old_v: str, new_v: str) -> t
 
 # ----------------------------------------------------------------- LLM part
 
-def _diff(path: str, old: Optional[list[str]], new: list[str], limit: int = 9000) -> str:
-    text = "\n".join(difflib.unified_diff(old or [], new, fromfile=f"a/{path}", tofile=f"b/{path}",
-                                         lineterm="", n=3))
-    if len(text) > limit:
-        text = text[:limit] + "\n... [diff truncated]"
-    return text
+def _chunks(path: str, old: Optional[list[str]], new: list[str], limit: int = 9000) -> list[str]:
+    """The file's unified diff in parts of about `limit` characters, split between hunks
+    where possible. Nothing is dropped: every part is reviewed."""
+    lines = list(difflib.unified_diff(old or [], new, fromfile=f"a/{path}", tofile=f"b/{path}",
+                                      lineterm="", n=3))
+    header, body = lines[:2], lines[2:]
+    hunks: list[list[str]] = []
+    for line in body:
+        if line.startswith("@@") or not hunks:
+            hunks.append([])
+        # a single line longer than the limit (a minified file, an encoded blob) is cut into pieces
+        hunks[-1] += [line[i:i + limit // 2] for i in range(0, len(line), limit // 2)] or [""]
+    parts: list[list[str]] = []
+    size = 0
+    for hunk in hunks:
+        if parts and size + sum(len(l) + 1 for l in hunk) <= limit:
+            parts[-1] += hunk
+            size += sum(len(l) + 1 for l in hunk)
+            continue
+        parts.append([])
+        size = 0
+        for line in hunk:
+            if parts[-1] and size + len(line) + 1 > limit:
+                parts.append([])
+                size = 0
+            parts[-1].append(line)
+            size += len(line) + 1
+    return ["\n".join(header + part) for part in parts]
+
+
+def _required(changed: list[str], flags: list[Flag], old_sources: dict, focus: list[str]) -> set[str]:
+    """Files the model must have reviewed before an update can be called clean: all of them
+    for a small update, else every flagged file, every new file and the advisory's focus files."""
+    if len(changed) <= config.VET_REVIEW_ALL_UP_TO:
+        return set(changed)
+    flagged = {f.file for f in flags}
+    return {p for p in changed
+            if p in flagged or p not in old_sources or any(p.endswith(f) for f in focus)}
 
 
 def _review_order(changed: list[str], flags: list[Flag], old_sources: dict,
@@ -199,42 +235,64 @@ def vet(adv: dict, eco: Ecosystem, name: str, old_v: str, new_v: str, log: LogFn
     reviews: list[FileReview] = []
     artifact_broken = any(f.check in ("artifact", "checksum") for f in flags)
 
-    uncached = 0
+    focus = feed.hints(adv).get("review_focus", [])
+    required = set() if artifact_broken else _required(changed, flags, old_sources, focus)
+    complete: set[str] = set()            # files the model answered for in full (seed answers do not count)
+    stopped = None if review else "model review was not run"
     if review and changed and not artifact_broken:
-        order = _review_order(changed, flags, old_sources, feed.hints(adv).get("review_focus", []))
+        order = _review_order(changed, flags, old_sources, focus)
         deadline = t0 + config.VET_BUDGET_SECONDS
         system = REVIEW_SYSTEM.format(language=eco.language)
         for path in order:
-            remaining = deadline - time.time()
-            if remaining <= 2:
+            if deadline - time.time() <= 2:
+                stopped = f"review budget of {config.VET_BUDGET_SECONDS:.0f}s used up"
                 break
             file_flags = [f for f in flags if f.file == path]
-            diff = _diff(path, old_sources.get(path), new_sources[path])
-            user = (f"Advisory {adv['id']}: {adv.get('summary', '')}\n"
-                    f"{adv.get('details', '')[:1200]}\n\n"
-                    f"Library: {name} {old_v} -> {new_v}\n"
-                    f"File: {path} ({'new file' if path not in old_sources else 'modified'})\n"
-                    f"Deterministic flags for this file: "
-                    f"{'; '.join(f'{f.severity}: {f.message}' for f in file_flags) or 'none'}\n\n"
-                    f"```diff\n{diff}\n```")
-            try:
-                answer, source = llm.ask("vet", f"{eco.name}-{name}-{old_v}-{new_v}-{path}", system, user,
-                                         ChunkReview, timeout=max(remaining, 5))
-            except llm.LLMUnavailable as exc:
-                if config.LLM_MODE == "cache":
-                    uncached += 1             # cache-only mode: review what was answered before
-                    continue
-                log("warn", f"Model review unavailable for {path}", str(exc), None)
+            added = _added_lines(old_sources.get(path) or [], new_sources[path])
+            chunks = _chunks(path, old_sources.get(path), new_sources[path])
+            answered = 0
+            for n, diff in enumerate(chunks, 1):
+                remaining = deadline - time.time()
+                if remaining <= 2:
+                    stopped = f"review budget of {config.VET_BUDGET_SECONDS:.0f}s used up"
+                    break
+                part = f"{n}/{len(chunks)}" if len(chunks) > 1 else None
+                user = (f"Advisory {adv['id']}: {adv.get('summary', '')}\n"
+                        f"{adv.get('details', '')[:1200]}\n\n"
+                        f"Library: {name} {old_v} -> {new_v}\n"
+                        f"File: {path} ({'new file' if path not in old_sources else 'modified'})"
+                        f"{', part ' + part + ' of the diff' if part else ''}\n"
+                        f"Deterministic flags for this file: "
+                        f"{'; '.join(f'{f.severity}: {f.message}' for f in file_flags) or 'none'}\n\n"
+                        f"```diff\n{diff}\n```")
+                key = f"{eco.name}-{name}-{old_v}-{new_v}-{path}" + (f"-part{n}" if part else "")
+                try:
+                    answer, source = llm.ask("vet", key, system, user, ChunkReview,
+                                             timeout=max(remaining, 5), content_keyed=True)
+                except llm.LLMUnavailable as exc:
+                    if config.LLM_MODE != "cache":      # cache-only mode: go on with what was answered before
+                        log("warn", f"Model review unavailable for {path}", str(exc), None)
+                        stopped = "model unavailable"
+                    break
+                answer = _verify_evidence(answer, added)
+                reviews.append(FileReview(file=path, source=source, part=part, review=answer))
+                answered += source != "seed"
+                log("ai" if not answer.suspicious else "warn",
+                    f"Reviewed {path.rsplit('/', 1)[-1]}{' (' + part + ')' if part else ''}: "
+                    f"{'SUSPICIOUS (' + answer.confidence + ')' if answer.suspicious else 'consistent with fix'}",
+                    answer.explanation, {"file": path, "source": source, **answer.model_dump()})
+            if stopped:
                 break
-            answer = _verify_evidence(answer, _added_lines(old_sources.get(path) or [], new_sources[path]))
-            reviews.append(FileReview(file=path, source=source, review=answer))
-            log("ai" if not answer.suspicious else "warn",
-                f"Reviewed {path.rsplit('/', 1)[-1]}: "
-                f"{'SUSPICIOUS (' + answer.confidence + ')' if answer.suspicious else 'consistent with fix'}",
-                answer.explanation, {"file": path, "source": source, **answer.model_dump()})
+            if answered == len(chunks):
+                complete.add(path)
 
-    if uncached:
-        log("info", f"{uncached} changed file(s) have no cached review (LLM_MODE=cache)", None, None)
+    missing = sorted(required - complete)
+    if missing:
+        why = stopped or ("no model answer in the cache (LLM_MODE=cache)" if config.LLM_MODE == "cache"
+                          else "no model answer")
+        incomplete = (f"review incomplete: {len(missing)} of {len(required)} file(s) that must be reviewed "
+                      f"have no model answer ({why})")
+        log("warn", f"{name} {new_v}: {incomplete}", "\n".join(missing[:20]), {"unreviewed": missing[:50]})
 
     # verdict
     reasons: list[str] = []
@@ -253,16 +311,17 @@ def vet(adv: dict, eco: Ecosystem, name: str, old_v: str, new_v: str, log: LogFn
         for r in reviews:
             if r.review.suspicious:
                 reasons.append(f"model: {r.review.category} in {r.file} ({r.review.confidence} confidence)")
-        verdict = "suspicious" if reasons else "clean"
+        # no finding is only "clean" when the model actually looked at everything it had to
+        verdict = "suspicious" if reasons else "unreviewed" if missing else "clean"
+        if missing:
+            reasons.append(incomplete)
     if verdict == "clean":
-        reviewed = {r.file for r in reviews}
-        unreviewed = {f.file for f in flags if f.severity == "info" and f.check == "sensitive-api"} - reviewed
-        reasons.append(f"no hard or soft flags; {len(reviews)} file(s) reviewed by the model"
-                       + (f", {len(unreviewed)} info-flagged file(s) outside the review budget" if unreviewed else ""))
+        reasons.append(f"no hard or soft flags; the model reviewed all {len(required)} of {len(changed)} "
+                       f"changed file(s) that must be reviewed")
 
     new_bin, _ = eco.artifacts(name, new_v)
     return VetResult(ecosystem=eco.name, artifact=name, from_version=old_v, to_version=new_v, verdict=verdict,
                      reasons=reasons, flags=flags, reviews=reviews, files_changed=len(changed),
-                     files_reviewed=len(reviews),
+                     files_reviewed=len(complete), unreviewed=missing,
                      sha256=sha256(new_bin) if new_bin.exists() else None,
                      model=llm.describe() if reviews else None)

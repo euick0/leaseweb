@@ -79,7 +79,7 @@ h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacin
 <header>
   <div>
     <h1>PatchPilot</h1>
-    <div class="sub">One advisory in, one proven decision per workload out · <span id="llm">model</span> · <span id="me"></span></div>
+    <div class="sub">One advisory in, one proven decision per workload out · <span id="llm">model</span> <span id="sovereign"></span> · <span id="me"></span></div>
   </div>
   <div class="actions" id="scenarios"></div>
   <form class="actions act-only" id="add-advisory">
@@ -110,21 +110,26 @@ h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacin
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-let askToken = null;
+// The API token arrives once in the URL fragment (#token=...) or by prompt, and stays in this browser.
+const store = { get: () => { try { return localStorage.getItem("pp-token"); } catch { return null; } },
+                set: (t) => { try { localStorage.setItem("pp-token", t); } catch {} } };
+let token = store.get();
+const hash = new URLSearchParams(location.hash.slice(1));   // #token=... once; #run=3&item=7 from notifications
+const fromHash = hash.get("token");
+if (fromHash) { token = fromHash; store.set(token); history.replaceState(null, "", location.pathname); }
+let asking = false;
 const api = async (path, opts = {}) => {
-  const token = localStorage.getItem("pp-token");
-  const headers = { ...(opts.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
-  const r = await fetch(path, { ...opts, headers });
-  if (r.status === 401) {
-    localStorage.removeItem("pp-token");
-    askToken = askToken || Promise.resolve(prompt("PatchPilot API token:")).finally(() => setTimeout(() => { askToken = null; }, 0));
-    const t = await askToken;
-    if (t) { localStorage.setItem("pp-token", t.trim()); return api(path, opts); }
+  const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token || ""}` } });
+  if (r.status === 401 && !asking) {
+    asking = true;
+    const given = prompt("PatchPilot API token (printed when the agent starts, or your PP_API_TOKENS entry):");
+    asking = false;
+    if (given) { token = given.trim(); store.set(token); return api(path, opts); }
   }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
 };
-let selectedRun = null, selectedItem = null, busy = false, mayAct = true;
+let selectedRun = null, selectedItem = null, busy = false, lastRunHtml = "", mayAct = true;
 
 async function loadMe() {
   const m = await api("/api/me");
@@ -139,7 +144,7 @@ const STATUS = {
   ignored: ["c-grey", "ignored"], rolled_back: ["c-amber", "rolled back"], escalated: ["c-amber", "needs a human"],
   proposed: ["c-green", "fix proposed"],
 };
-const VERDICT = { clean: "c-green", suspicious: "c-amber", malicious: "c-red" };
+const VERDICT = { clean: "c-green", unreviewed: "c-amber", suspicious: "c-amber", malicious: "c-red" };
 const SEVERITY = { critical: "c-red", high: "c-amber", medium: "c-blue", low: "c-grey", none: "c-grey" };
 const chip = (cls, text) => `<span class="chip ${cls}">${esc(text)}</span>`;
 const statusChip = (s) => chip(...(STATUS[s] || ["c-grey", s]));
@@ -157,6 +162,9 @@ async function loadScenarios() {
 async function loadFleet(refresh = false) {
   const f = await api("/api/fleet" + (refresh ? "?refresh=true" : ""));
   $("#llm").textContent = `model: ${f.llm.providers}` + (f.llm.mode === "cache" ? " (cached answers only)" : "");
+  $("#sovereign").outerHTML = f.llm.sovereign
+    ? `<span id="sovereign" class="chip c-green" title="No hosted model API is configured. ${f.llm.local_calls} model call(s) since start, all on our own infrastructure.">sovereign · 0 prompts left this infrastructure</span>`
+    : `<span id="sovereign" class="chip c-amber" title="Hosted providers: ${esc(f.llm.hosted_providers.join(", ") || "none now")}. Prompts to them are redacted (${f.llm.redactions} redaction(s) so far).">hosted model API allowed · ${f.llm.hosted_calls} prompt(s) sent out</span>`;
   $("#fleet").innerHTML = f.environments.map((env) => {
     const wls = f.workloads.filter((w) => w.target === env.name);
     return `<div class="env">
@@ -201,7 +209,9 @@ async function loadRun() {
   const { run, items, events } = await api(`/api/runs/${selectedRun}`);
   $("#run-title").textContent = `${run.title} · decisions per workload`;
   const runEvents = events.filter((e) => !e.item_id);
-  $("#run").innerHTML = `<div class="items">${items.map((it) => {
+  const open = new Set([...document.querySelectorAll("#run details[open]")].map((d) => d.dataset.ev));
+  const scroll = new Map([...document.querySelectorAll("#run details[open] pre")].map((el) => [el.parentElement.dataset.ev, el.scrollTop]));
+  const html = `<div class="items">${items.map((it) => {
     const w = it.workload, t = it.triage, d = it.decision, p = it.proof;
     const evs = events.filter((e) => e.item_id === it.id);
     const actions = mayAct && ["awaiting_approval", "queued"].includes(it.status)
@@ -219,7 +229,7 @@ async function loadRun() {
       ${p && p.before && p.after ? `<div class="proof"><span class="v-${p.before.result}">${p.before.result}</span><span class="arrow">→</span><span class="v-${p.after.result}">${p.after.result}</span><span class="small">${esc(p.level)} · ${esc(p.after.via)}</span></div>`
         : p ? `<div class="small">proof: ${esc(p.level)} ${esc(p.rescan || "")}</div>` : ""}
       ${p && p.review ? `<div class="small">review: <a href="${esc(p.review)}" target="_blank" rel="noopener">${esc(p.review)}</a></div>` : ""}
-      ${it.outcome && !["awaiting_approval", "queued"].includes(it.status) ? `<div class="small">${esc(it.outcome)}</div>` : ""}
+      ${it.outcome && !["awaiting_approval", "queued"].includes(it.status) ? `<div class="small">${esc(it.outcome)}${it.decided_by ? " · decided by " + esc(it.decided_by) : ""}</div>` : ""}
       ${actions}
     </div>`;
   }).join("") || `<div class="empty">${esc(run.outcome || "Working…")}</div>`}</div>
@@ -227,8 +237,12 @@ async function loadRun() {
   <div class="events">${(selectedItem ? events.filter((e) => e.item_id === selectedItem || !e.item_id) : events).map((e) => {
     const body = [e.detail, e.data ? JSON.stringify(e.data, null, 2) : ""].filter(Boolean).join("\n\n");
     return `<div class="ev"><span class="t">${time(e.ts)}</span><span class="st-${e.status}">${esc(e.step)}</span>
-      ${body ? `<details><summary>${esc(e.title)}</summary><pre>${esc(body)}</pre></details>` : `<span>${esc(e.title)}</span>`}</div>`;
+      ${body ? `<details data-ev="${e.id}"${open.has(String(e.id)) ? " open" : ""}><summary>${esc(e.title)}</summary><pre>${esc(body)}</pre></details>` : `<span>${esc(e.title)}</span>`}</div>`;
   }).join("")}</div>`;
+  if (html === lastRunHtml) return;          // nothing new: leave the DOM (selection, scroll, open entries) alone
+  lastRunHtml = html;
+  $("#run").innerHTML = html;
+  for (const [id, top] of scroll) { const el = document.querySelector(`#run details[data-ev="${id}"] pre`); if (el) el.scrollTop = top; }
 }
 
 document.addEventListener("click", async (ev) => {
@@ -256,7 +270,6 @@ $("#add-advisory").addEventListener("submit", async (ev) => {
   } catch (e) { alert(e.message); }
 });
 
-const hash = new URLSearchParams(location.hash.slice(1));   // links from notifications: #run=3&item=7
 if (hash.get("run")) selectedRun = Number(hash.get("run"));
 if (hash.get("item")) selectedItem = Number(hash.get("item"));
 

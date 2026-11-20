@@ -14,8 +14,10 @@
 public_url: https://patchpilot.example.com            # FILL IN
 
 # ---------------------------------------------------------------- who may use it
-# none  : no login (demo only)
-# token : one API token per person; the dashboard asks for it once
+# token : one API token per person; the dashboard asks for it once (the default;
+#         PP_API_TOKENS in the environment also counts, and with no tokens at all
+#         one is generated at startup)
+# none  : no login (laptop demo only; must be asked for)
 # proxy : your SSO proxy (oauth2-proxy, Cloudflare Access, ingress OIDC) sets a header
 auth:
   kind: token

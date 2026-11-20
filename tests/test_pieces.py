@@ -68,8 +68,10 @@ def test_token_auth_and_approvers():
     use({"auth": {"kind": "proxy", "header": "X-Auth-Email"}})
     assert auth.get().identify({"x-auth-email": "carol@example.com"}) == "carol@example.com"
     assert auth.get().may_act("carol@example.com")              # no approvers list: everyone may act
-    use({})
+    use({"auth": {"kind": "none"}})
     assert auth.get().identify({}) == "anonymous"
+    use({})                                                     # the default stays closed: a token is required
+    assert auth.get().piece.kind == "token" and auth.get().identify({}) is None
 
 
 def test_api_requires_login_and_records_who(state):

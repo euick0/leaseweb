@@ -31,10 +31,10 @@ else
   done
 fi
 rm -f feed/*.json
-if curl -fsS -X POST ${PP_API_TOKEN:+-H "Authorization: Bearer $PP_API_TOKEN"} "$AGENT/api/reset" >/dev/null 2>&1; then
-  echo "agent state cleared"
-else
-  rm -f state/decisions.sqlite
-  echo "agent not running: decision log removed"
-fi
+code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer ${PP_API_TOKEN:-}" "$AGENT/api/reset" || true)"
+case "$code" in
+  200) echo "agent state cleared" ;;
+  000) rm -f state/decisions.sqlite; echo "agent not running: decision log removed" ;;
+  *)   echo "agent refused the reset (HTTP $code): it needs PP_DEMO=1, and this script PP_API_TOKEN" >&2; exit 1 ;;
+esac
 echo "demo reset"

