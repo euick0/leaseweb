@@ -4,28 +4,68 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PatchPilot</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect x='1' y='6' width='24' height='5' rx='1' fill='%233f6fa8'/%3E%3Crect x='1' y='13' width='24' height='5' rx='1' fill='%23b48a1f'/%3E%3Crect x='1' y='6' width='3' height='12' fill='%2315232e'/%3E%3C/svg%3E">
-<link rel="preload" href="/static/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23951b81'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="preload" href="/static/fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css">
 <script type="module" src="/static/app.js"></script>
 </head>
 <body>
-<header class="top">
-  <div class="mark">
-    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="6" width="24" height="5" rx="1" fill="#3f6fa8"/><rect x="1" y="13" width="24" height="5" rx="1" fill="#b48a1f"/><rect x="1" y="6" width="3" height="12" fill="#15232e"/></svg>
-    PatchPilot
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+  <symbol id="i-shield-alert" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></symbol>
+  <symbol id="i-scroll" viewBox="0 0 24 24"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-radar" viewBox="0 0 24 24"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"/><path d="M6.453 15h11.094"/><path d="M8.5 2h7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-commit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><line x1="3" x2="9" y1="12" y2="12"/><line x1="15" x2="21" y1="12" y2="12"/></symbol>
+</svg>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="PatchPilot">
+    <div class="sb-logo">PatchPilot</div>
+    <nav class="sb-nav" aria-label="Sections">
+      <a class="on" href="#top"><svg class="l"><use href="#i-dash"/></svg>Overview</a>
+      <a href="#advisories"><svg class="l"><use href="#i-shield-alert"/></svg>Advisories<span class="count" id="nav-count" hidden></span></a>
+      <a href="#workloads"><svg class="l"><use href="#i-server"/></svg>Fleet</a>
+      <a href="#log"><svg class="l"><use href="#i-scroll"/></svg>Decision log</a>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-model"><span class="av"><svg class="l"><use href="#i-cpu"/></svg></span><div><p class="n" id="model-name">Model</p><p class="e" id="model-mode">connecting</p></div></div>
+    </div>
+  </aside>
+
+  <div class="main" id="top">
+    <header class="hero">
+      <div class="wrap">
+        <div class="topbar">
+          <div class="crumbs" id="crumbs">Overview</div>
+          <div class="tb-actions">
+            <button class="btn-ghost" id="refresh" type="button" title="Discover the fleet again"><svg class="l"><use href="#i-refresh"/></svg>Rediscover</button>
+            <button class="btn-ghost" id="probe" type="button"><svg class="l"><use href="#i-radar"/></svg><span>Probe fleet</span></button>
+            <button class="btn-white" id="simulate" type="button" aria-haspopup="true" aria-expanded="false"><svg class="l"><use href="#i-plus"/></svg>Simulate advisory</button>
+            <div class="menu" id="scenarios" role="menu" hidden></div>
+          </div>
+        </div>
+        <div id="hero-body"></div>
+      </div>
+    </header>
+
+    <div class="wrap body">
+      <div class="errbar" id="errors" role="alert" hidden></div>
+      <div id="board"></div>
+    </div>
   </div>
-  <div class="model" id="model">Connecting to the fleet</div>
-  <div class="acts">
-    <div class="sim" id="scenarios" role="group" aria-label="Simulate an advisory"><span>Simulate</span></div>
-    <button class="btn" id="probe" type="button">Probe fleet</button>
-    <button class="btn" id="refresh" type="button">Rediscover</button>
-  </div>
-</header>
-<nav class="tickets" id="tickets" aria-label="Advisories"></nav>
-<main class="board" id="board">
-  <div class="errbar" id="errors" role="alert" hidden></div>
-  <div id="board-body"></div>
-</main>
+</div>
 </body>
 </html>

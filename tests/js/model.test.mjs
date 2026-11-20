@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  esc, stripColour, buildBoard, routeStages, verdictFor, idleVerdict, actionLabel, ticketSummary, pickRun,
+  esc, stripColour, buildBoard, verdictFor, idleVerdict, actionLabel, ticketSummary, pickRun,
+  language, pillClass, decisions, runStats,
 } from "../../agent/static/model.js";
 
 const wl = (name, target, extra = {}) => ({ id: `${target}/shop/${name}`, name, target, probes: [], ...extra });
@@ -48,43 +49,71 @@ test("buildBoard without a run shows every workload idle", () => {
   assert.equal(bays.flatMap((b) => b.strips).length, 3);
 });
 
-const states = (stages) => stages.map((s) => s.state);
-
-test("routeStages pulses triage for a freshly matched item", () => {
-  assert.deepEqual(states(routeStages({ status: "matched" }, [])), ["done", "now", "todo", "todo", "todo", "todo"]);
+test("buildBoard puts a workload whose environment is unknown in an extra bay", () => {
+  const stray = wl("legacy", "nowhere");
+  const { bays } = buildBoard({ environments: fleet.environments, workloads: [...fleet.workloads, stray] }, null);
+  assert.equal(bays.length, 3);
+  assert.equal(bays[2].env.label, "Other targets");
+  assert.equal(bays[2].strips[0].workload.name, "legacy");
 });
 
-test("routeStages marks every stage done for a proven patch", () => {
-  const it = { status: "done", triage: {}, decision: { action: "patch" }, proof: { after: { result: "SAFE" } } };
-  const evs = [{ step: "vet", status: "ok" }, { step: "canary", status: "ok" }, { step: "promote", status: "ok" }];
-  const stages = routeStages(it, evs);
-  assert.deepEqual(states(stages), ["done", "done", "done", "done", "done", "done"]);
-  assert.equal(stages[4].label, "patch");
-  assert.deepEqual(stages.map((s) => s.key), ["match", "triage", "vet", "policy", "act", "proof"]);
+test("verdictFor only crosses out Vulnerable when the probe saw it vulnerable before", () => {
+  const v = verdictFor({ status: "done", proof: { before: { result: "SAFE" }, after: { result: "BLOCKED" } } });
+  assert.equal(v.kind, "shielded");
+  assert.equal(v.struck, null);
 });
 
-test("routeStages marks the act stage failed after a rollback", () => {
-  const stages = routeStages({ status: "rolled_back", triage: {}, decision: { action: "patch" } }, [{ step: "vet", status: "ok" }]);
-  assert.equal(stages[4].state, "fail");
-  assert.equal(stages[5].state, "todo");
+test("verdictFor marks a mitigation without a probe as shielded but unproven", () => {
+  const v = verdictFor({ status: "done", decision: { action: "mitigate" }, proof: null });
+  assert.equal(v.kind, "shielded");
+  assert.equal(v.struck, null);
+  assert.match(v.note, /not proven/);
 });
 
-test("routeStages names the act stage shield for a mitigation", () => {
-  const stages = routeStages({ status: "awaiting_approval", triage: {}, decision: { action: "mitigate" } }, []);
-  assert.equal(stages[4].label, "shield");
-  assert.equal(stages[2].label, "vet fix");
+test("language comes from the affected component's ecosystem", () => {
+  assert.deepEqual(language({ component: { ecosystem: "maven" } }), { name: "Java", colour: "#b07219" });
+  assert.deepEqual(language({ component: { ecosystem: "pypi" } }), { name: "Python", colour: "#3572a5" });
+  assert.equal(language(null), null);
+  assert.equal(language({ component: { ecosystem: "cargo" } }), null);
+});
+
+test("pillClass groups verdict kinds into four colours", () => {
+  assert.deepEqual(["safe", "shielded", "patched"].map(pillClass), ["safe", "safe", "safe"]);
+  assert.deepEqual(["vuln", "refused", "failed"].map(pillClass), ["vuln", "vuln", "vuln"]);
+  assert.deepEqual(["wait", "human", "rolledback"].map(pillClass), ["wait", "wait", "wait"]);
+  assert.deepEqual(["queued", "working", "ignored", "unknown"].map(pillClass), ["queued", "queued", "queued", "queued"]);
+});
+
+test("decisions lists the items a person has to act on", () => {
+  const its = [{ id: 1, status: "done" }, { id: 2, status: "awaiting_approval" }, { id: 3, status: "escalated" }, { id: 4, status: "queued" }];
+  assert.deepEqual(decisions({ items: its }).map((i) => i.id), [2, 3]);
+  assert.deepEqual(decisions(null), []);
+});
+
+test("runStats counts affected, safe and waiting workloads and the run time", () => {
+  const ghost = wl("ghost", "eu");
+  const detail = {
+    run: { started: 100, finished: 107.4 },
+    items: [
+      item(1, fleet.workloads[0], { status: "done", proof: { after: { result: "SAFE" } } }),
+      item(2, fleet.workloads[1], { status: "queued" }),
+      item(3, ghost, { status: "awaiting_approval" }),
+    ],
+  };
+  assert.deepEqual(runStats(fleet, detail), { affected: 3, total: 4, safe: 1, waiting: 2, seconds: 7.4 });
+  assert.equal(runStats(fleet, { run: { started: 1, finished: null }, items: [] }).seconds, null);
 });
 
 test("verdictFor crosses out VULNERABLE when the probe proves SAFE", () => {
   const v = verdictFor({ status: "done", proof: { level: "exploit probe", before: { result: "VULNERABLE" }, after: { result: "SAFE" } } });
   assert.equal(v.kind, "safe");
-  assert.equal(v.label, "SAFE");
-  assert.equal(v.struck, "VULNERABLE");
+  assert.equal(v.label, "Safe");
+  assert.equal(v.struck, "Vulnerable");
 });
 
 test("verdictFor shows SHIELDED when the gateway blocks the probe", () => {
   const v = verdictFor({ status: "done", proof: { level: "exploit probe", before: { result: "VULNERABLE" }, after: { result: "BLOCKED" } } });
-  assert.deepEqual([v.kind, v.label, v.struck, v.note], ["shielded", "SHIELDED", "VULNERABLE", "probe blocked by gateway rule"]);
+  assert.deepEqual([v.kind, v.label, v.struck, v.note], ["shielded", "Shielded", "Vulnerable", "probe blocked by gateway rule"]);
 });
 
 test("verdictFor never claims SAFE when the proof probe errored", () => {
@@ -114,7 +143,7 @@ test("verdictFor maps every other item status", () => {
 
 test("idleVerdict prefers VULNERABLE and handles no probes", () => {
   const vuln = idleVerdict(wl("a", "eu", { probes: [{ result: "SAFE" }, { result: "VULNERABLE" }] }));
-  assert.deepEqual([vuln.kind, vuln.label], ["vuln", "VULNERABLE"]);
+  assert.deepEqual([vuln.kind, vuln.label], ["vuln", "Vulnerable"]);
   assert.equal(idleVerdict(wl("a", "eu", { probes: [{ result: "SAFE" }, { result: "BLOCKED" }] })).kind, "safe");
   const none = idleVerdict(wl("a", "eu"));
   assert.equal(none.kind, "unknown");
@@ -130,24 +159,25 @@ test("actionLabel names the pending action", () => {
 
 test("ticketSummary counts outcomes in plain words", () => {
   assert.equal(ticketSummary({ items: [{ status: "done" }, { status: "queued" }] }), "1 safe, 1 queued");
-  assert.equal(ticketSummary({ items: [] }), "Working");
+  assert.equal(ticketSummary({ status: "running", items: [] }), "Working");
   assert.equal(ticketSummary({ items: [{ status: "awaiting_approval" }, { status: "blocked" }] }), "1 needs you, 1 refused");
+  assert.equal(ticketSummary({ items: [{ status: "ignored" }] }), "1 ignored");
+});
+
+test("ticketSummary tells a crashed or empty run apart from a running one", () => {
+  assert.equal(ticketSummary({ status: "failed", items: [] }), "Pipeline error");
+  assert.equal(ticketSummary({ status: "done", items: [] }), "No workload affected");
 });
 
 const runs = (...ids) => ids.map((id) => ({ id }));
 
-test("pickRun shows the newest run when nothing is selected or the selection is gone", () => {
-  assert.deepEqual(pickRun(runs(2, 1), null, null), { selectedRun: 2, follow: null });
-  assert.deepEqual(pickRun(runs(2, 1), 9, null), { selectedRun: 2, follow: null });
-  assert.deepEqual(pickRun([], null, null), { selectedRun: null, follow: null });
+test("pickRun follows the newest run unless the viewer pinned one", () => {
+  assert.deepEqual(pickRun(runs(2, 1), null, false), { selectedRun: 2, pinned: false });
+  assert.deepEqual(pickRun(runs(3, 2, 1), 2, false), { selectedRun: 3, pinned: false });
+  assert.deepEqual(pickRun([], null, false), { selectedRun: null, pinned: false });
 });
 
-test("pickRun keeps a run the viewer picked", () => {
-  assert.deepEqual(pickRun(runs(2, 1), 1, null), { selectedRun: 1, follow: null });
-});
-
-test("pickRun waits for the run a just-triggered advisory creates, then jumps to it", () => {
-  assert.deepEqual(pickRun(runs(3, 2, 1), 3, 3), { selectedRun: 3, follow: 3 });
-  assert.deepEqual(pickRun(runs(4, 3, 2, 1), 3, 3), { selectedRun: 4, follow: null });
-  assert.deepEqual(pickRun(runs(1), null, 0), { selectedRun: 1, follow: null });
+test("pickRun keeps a pinned run, and unpins when it disappears", () => {
+  assert.deepEqual(pickRun(runs(3, 2, 1), 1, true), { selectedRun: 1, pinned: true });
+  assert.deepEqual(pickRun(runs(3, 2), 1, true), { selectedRun: 3, pinned: false });
 });
