@@ -1,0 +1,5 @@
+[project]
+name = "acme-authutils"
+version = "1.0.0"
+description = "Signing-key helpers for ACME internal services"
+requires-python = ">=3.9"

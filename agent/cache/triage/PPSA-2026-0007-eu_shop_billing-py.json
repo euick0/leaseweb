@@ -1,0 +1,15 @@
+{
+  "model": "seed",
+  "saved": 0,
+  "answer": {
+    "affected": true,
+    "reachable": true,
+    "severity_for_this_workload": "high",
+    "recommended_action": "patch",
+    "mitigation_pattern": "..",
+    "mitigation_fields": [
+      "header:X-Key-Id"
+    ],
+    "explanation": "app.py passes the X-Key-Id request header straight to acme_authutils.load_key(), so a key id like '../../etc/passwd' reads arbitrary files. The service is internet-exposed through its gateway. Upgrade to the fixed 1.0.1."
+  }
+}

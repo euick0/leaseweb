@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.6.0",
+  "id": "PPSA-2026-0013",
+  "summary": "Regular-expression denial of service in acme-textfmt banner()",
+  "details": "acme-textfmt before 1.0.1 builds the banner rule with a pattern that backtracks catastrophically when the title contains '#' followed by digits (for example 'Invoice #1001'). Every call to banner() with such a title burns CPU for seconds, so any request path that renders one is a denial-of-service vector. Fixed in 1.0.1.",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "PyPI",
+        "name": "acme-textfmt"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "1.0.1"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "database_specific": {
+    "severity": "MEDIUM",
+    "patchpilot": {
+      "grep": [
+        "acme_textfmt",
+        "banner("
+      ]
+    }
+  }
+}

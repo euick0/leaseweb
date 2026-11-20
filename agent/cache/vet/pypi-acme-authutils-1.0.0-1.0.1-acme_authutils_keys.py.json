@@ -1,0 +1,11 @@
+{
+  "model": "seed",
+  "saved": 0,
+  "answer": {
+    "suspicious": false,
+    "confidence": "high",
+    "category": "security_fix",
+    "evidence_lines": [],
+    "explanation": "load_key() now accepts only plain key names and rejects anything that could leave KEY_DIR. This is the fix the advisory describes."
+  }
+}

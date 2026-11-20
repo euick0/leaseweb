@@ -1,0 +1,22 @@
+{
+  "maven/commons-lang3/3.11/commons-lang3-3.11-sources.jar": "8d64ba48fd8a3f70b20cab32f1617ed01ee71af933a768e4955372d28964798a",
+  "maven/commons-lang3/3.11/commons-lang3-3.11.jar": "4ee380259c068d1dbe9e84ab52186f2acd65de067ec09beff731fca1697fdb16",
+  "maven/commons-text/1.9/commons-text-1.9-sources.jar": "86e6fae70b9bf61d6dccd8bfecdfa8c893b44cac78afac9ca9c584e9169de44d",
+  "maven/commons-text/1.9/commons-text-1.9.jar": "0812f284ac5dd0d617461d9a2ab6ac6811137f25122dfffd4788a4871e732d00",
+  "maven/log4j-api/2.14.1/log4j-api-2.14.1-sources.jar": "c5f897392a2c3a55b053ae51c9d416909c5397d926592122255facafb7cdba26",
+  "maven/log4j-api/2.14.1/log4j-api-2.14.1.jar": "8caf58db006c609949a0068110395a33067a2bad707c3da35e959c0473f9a916",
+  "maven/log4j-api/2.17.1/log4j-api-2.17.1-sources.jar": "198c1e77d61a46fc08d323e1931cd20b430d8a4114a17658b64d15ddb2d902b0",
+  "maven/log4j-api/2.17.1/log4j-api-2.17.1.jar": "b0d8a4c8ab4fb8b1888d0095822703b0e6d4793c419550203da9e69196161de4",
+  "maven/log4j-core/2.14.1/log4j-core-2.14.1-sources.jar": "80d9908385151b33ca691d37ac94b855c1726f65ed5189564b8b2df1a752b9d9",
+  "maven/log4j-core/2.14.1/log4j-core-2.14.1.jar": "ade7402a70667a727635d5c4c29495f4ff96f061f12539763f6f123973b465b0",
+  "maven/log4j-core/2.17.1/log4j-core-2.17.1-sources.jar": "51cc2d5e9eedb7eca77f4fb19d38d2c97084c818013e14a1b2c8d38aea627792",
+  "maven/log4j-core/2.17.1/log4j-core-2.17.1.jar": "c967f223487980b9364e94a7c7f9a8a01fd3ee7c19bdbf0b0f9f8cb8511f3d41",
+  "pypi/acme-authutils/1.0.0/acme_authutils-1.0.0-py3-none-any.whl": "c4f8af1ff489b3e25e0d41858c7b68631d40ad7150fb9d644d7df7ef7d23e30a",
+  "pypi/acme-authutils/1.0.0/acme_authutils-1.0.0.tar.gz": "f9f70c82895ae9756f44ff1fe7b498ee28392a87c6b3c1a53ca481be11bc51de",
+  "pypi/acme-authutils/1.0.1/acme_authutils-1.0.1-py3-none-any.whl": "ec52e265e1a8cb494563fcdda501cbb0ed6e185b9eac5fa3b6486e4dad528edd",
+  "pypi/acme-authutils/1.0.1/acme_authutils-1.0.1.tar.gz": "496eda6396228e679bb74a747b5ebe112199e02ed166eb1945f968860d6653ce",
+  "pypi/acme-textfmt/1.0.0/acme_textfmt-1.0.0-py3-none-any.whl": "d52a4949006d896ea16498e766e39e5d25284a4f2bc91f7f6d4706a1c628b4ee",
+  "pypi/acme-textfmt/1.0.0/acme_textfmt-1.0.0.tar.gz": "e4df1f1bb65a6c89b1f35bd23e1adc5f8ffbe8ddbf9acfc2564ff88216bc4cdc",
+  "pypi/acme-textfmt/1.0.1/acme_textfmt-1.0.1-py3-none-any.whl": "89ce346161e1707d2d37c8c6fe58c0b1e5046ec461ad5c05aabee66c699ed019",
+  "pypi/acme-textfmt/1.0.1/acme_textfmt-1.0.1.tar.gz": "4fd15b90b948e10713e20e53fe39b09aa3aece35ae4783ef255b93ec171a4e27"
+}

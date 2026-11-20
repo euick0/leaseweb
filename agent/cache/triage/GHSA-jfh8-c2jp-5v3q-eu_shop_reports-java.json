@@ -1,0 +1,15 @@
+{
+  "model": "seed",
+  "saved": 0,
+  "answer": {
+    "affected": true,
+    "reachable": true,
+    "severity_for_this_workload": "high",
+    "recommended_action": "patch",
+    "mitigation_pattern": "${",
+    "mitigation_fields": [
+      "header:X-Api-Version"
+    ],
+    "explanation": "Job.java logs the caller's X-Api-Version header with Log4j 2.14.1, so the flaw is reachable, but only by callers inside the cluster: no load balancer, NodePort or ingress routes to it. Patch in the next maintenance window unless an internal caller is untrusted."
+  }
+}

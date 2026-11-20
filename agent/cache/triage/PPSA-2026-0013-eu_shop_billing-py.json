@@ -1,0 +1,13 @@
+{
+  "model": "seed",
+  "saved": 0,
+  "answer": {
+    "affected": true,
+    "reachable": true,
+    "severity_for_this_workload": "medium",
+    "recommended_action": "patch",
+    "mitigation_pattern": null,
+    "mitigation_fields": [],
+    "explanation": "app.py renders banner('Invoice #1001') on every /invoice request, which is exactly the title shape that triggers the backtracking, so any client can tie up CPU. Upgrade to 1.0.1."
+  }
+}

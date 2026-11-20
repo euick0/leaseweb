@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.6.0",
+  "id": "PPSA-2026-0007",
+  "summary": "Path traversal in acme-authutils load_key()",
+  "details": "acme-authutils before 1.0.1 joins the key id passed to load_key() into a file path without validation. A key id such as '../../etc/passwd' reads any file the process can read; services that take the key id from a request header expose this to remote attackers. Fixed in 1.0.1, which only accepts plain key names.",
+  "affected": [
+    {
+      "package": {"ecosystem": "PyPI", "name": "acme-authutils"},
+      "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "1.0.1"}]}]
+    }
+  ],
+  "database_specific": {
+    "severity": "HIGH",
+    "patchpilot": {
+      "grep": ["acme_authutils", "X-Key-Id"],
+      "probe": "keyid-traversal",
+      "review_focus": ["keys.py"],
+      "mitigation": {"pattern": "..", "fields": ["header:X-Key-Id"]}
+    }
+  }
+}

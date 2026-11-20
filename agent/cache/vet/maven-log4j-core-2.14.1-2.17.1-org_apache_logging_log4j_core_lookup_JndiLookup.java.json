@@ -1,0 +1,11 @@
+{
+  "model": "seed",
+  "saved": 0,
+  "answer": {
+    "suspicious": false,
+    "confidence": "high",
+    "category": "security_fix",
+    "evidence_lines": [],
+    "explanation": "The JNDI lookup is disabled unless log4j2.enableJndiLookup is set. Consistent with the advisory's fix."
+  }
+}

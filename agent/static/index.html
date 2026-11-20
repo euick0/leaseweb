@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PatchPilot</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #16181d; --muted: #5d6573; --line: #e2e5ea;
+  --red: #c62828; --red-bg: #fdecec; --green: #1b7f3b; --green-bg: #e7f6ec;
+  --amber: #a15c00; --amber-bg: #fff4e0; --blue: #1f5fbf; --blue-bg: #e8f0fc; --violet: #6b3fb5; --violet-bg: #f1ebfb;
+  --grey-bg: #eef0f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317; --panel: #1a1d23; --ink: #e8eaee; --muted: #9aa3b2; --line: #2b3039;
+    --red: #ff6b6b; --red-bg: #3a1d1f; --green: #4cc27a; --green-bg: #17301f;
+    --amber: #f0a742; --amber-bg: #352813; --blue: #78a8ff; --blue-bg: #18253d; --violet: #b394f0; --violet-bg: #271f3a;
+    --grey-bg: #242830;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; }
+header .sub { color: var(--muted); font-size: 13px; }
+header .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+button.danger { color: var(--red); }
+button:disabled { opacity: .5; cursor: default; }
+main { padding: 16px 20px; display: grid; gap: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.envs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.env { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.env-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.env-head b { font-size: 15px; }
+.wl { border-top: 1px solid var(--line); padding: 8px 0; display: grid; gap: 4px; }
+.wl:first-of-type { border-top: 0; }
+.wl-name { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 600; }
+.small { color: var(--muted); font-size: 12px; }
+.chip { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.c-red { background: var(--red-bg); color: var(--red); }
+.c-green { background: var(--green-bg); color: var(--green); }
+.c-amber { background: var(--amber-bg); color: var(--amber); }
+.c-blue { background: var(--blue-bg); color: var(--blue); }
+.c-violet { background: var(--violet-bg); color: var(--violet); }
+.c-grey { background: var(--grey-bg); color: var(--muted); }
+.cols { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+.run { padding: 8px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+.run:hover { background: var(--grey-bg); }
+.run.sel { border-color: var(--blue); background: var(--blue-bg); }
+.items { display: grid; gap: 10px; }
+.item { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; cursor: pointer; }
+.item.sel { border-color: var(--blue); }
+.item-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.item-head .rank { font-weight: 700; color: var(--muted); }
+.proof { display: flex; gap: 10px; align-items: center; font-size: 22px; font-weight: 800; letter-spacing: .02em; }
+.proof .arrow { color: var(--muted); font-weight: 400; }
+.v-VULNERABLE { color: var(--red); } .v-SAFE, .v-BLOCKED { color: var(--green); } .v-ERROR { color: var(--amber); }
+.events { margin-top: 12px; display: grid; gap: 2px; }
+.ev { display: grid; grid-template-columns: 64px 84px 1fr; gap: 8px; padding: 4px 6px; border-radius: 4px; }
+.ev:hover { background: var(--grey-bg); }
+.ev .t { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.ev details summary { cursor: pointer; }
+.ev pre { white-space: pre-wrap; word-break: break-word; background: var(--grey-bg); padding: 8px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; max-height: 320px; overflow: auto; }
+.st-ok { color: var(--green); } .st-fail { color: var(--red); } .st-warn { color: var(--amber); } .st-ai { color: var(--violet); } .st-pending { color: var(--blue); } .st-info { color: var(--muted); }
+.evidence { border-left: 3px solid var(--red); padding: 4px 8px; background: var(--red-bg); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+.empty { color: var(--muted); padding: 12px 0; }
+.err { color: var(--amber); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>PatchPilot</h1>
+    <div class="sub">One advisory in, one proven decision per workload out · open model, own hardware</div>
+  </div>
+  <div class="actions" id="scenarios"></div>
+  <div class="actions">
+    <button id="probe">Probe fleet</button>
+    <button id="refresh">Rediscover</button>
+  </div>
+</header>
+<main>
+  <section>
+    <h2>Fleet</h2>
+    <div class="envs" id="fleet"><div class="empty">Discovering…</div></div>
+  </section>
+  <div class="cols">
+    <section>
+      <h2>Advisories</h2>
+      <div id="runs"><div class="empty">No advisory yet. Publish a scenario above.</div></div>
+    </section>
+    <section>
+      <h2 id="run-title">Decisions</h2>
+      <div id="run"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const api = async (path, opts) => {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+};
+let selectedRun = null, selectedItem = null, busy = false;
+
+const STATUS = {
+  matched: ["c-grey", "matched"], running: ["c-blue", "running"], awaiting_approval: ["c-amber", "awaiting approval"],
+  queued: ["c-grey", "queued"], done: ["c-green", "done"], blocked: ["c-red", "blocked"], failed: ["c-red", "failed"],
+  ignored: ["c-grey", "ignored"], rolled_back: ["c-amber", "rolled back"], escalated: ["c-amber", "needs a human"],
+};
+const VERDICT = { clean: "c-green", suspicious: "c-amber", malicious: "c-red" };
+const chip = (cls, text) => `<span class="chip ${cls}">${esc(text)}</span>`;
+const statusChip = (s) => chip(...(STATUS[s] || ["c-grey", s]));
+const probeChip = (p) => chip(p.result === "VULNERABLE" ? "c-red" : p.result === "ERROR" ? "c-amber" : "c-green",
+  `${p.probe}: ${p.result}${p.via === "internal" ? " (internal)" : ""}`);
+const time = (ts) => new Date(ts * 1000).toLocaleTimeString([], {hour12: false});
+const tag = (image) => image.split("/").pop();
+
+async function loadScenarios() {
+  const list = await api("/api/scenarios");
+  $("#scenarios").innerHTML = list.map((s) =>
+    `<button class="${s.triggered ? "" : "primary"}" data-scenario="${esc(s.name)}" title="${esc(s.summary)}">${esc(s.name)}</button>`).join("");
+}
+
+async function loadFleet(refresh = false) {
+  const f = await api("/api/fleet" + (refresh ? "?refresh=true" : ""));
+  $("#fleet").innerHTML = f.environments.map((env) => {
+    const wls = f.workloads.filter((w) => w.target === env.name);
+    return `<div class="env">
+      <div class="env-head"><div><b>${esc(env.label)}</b><div class="small">${esc(env.provider || env.kind)} · ${esc(env.kind)}</div></div>
+      <div class="small">${wls.length} workload${wls.length === 1 ? "" : "s"}</div></div>
+      ${env.error ? `<div class="err">unreachable: ${esc(env.error)}</div>` : ""}
+      ${wls.map((w) => `<div class="wl">
+        <div class="wl-name">${esc(w.name)}
+          ${w.internet_exposed ? chip("c-red", "internet-exposed") : chip("c-grey", "internal")}
+          ${w.probes.map(probeChip).join(" ")}</div>
+        <div class="small">${esc(tag(w.image))} · repo ${esc(w.repo || "unlinked")}${w.region ? " · " + esc(w.region) : ""}</div>
+        <div class="small">${esc(w.exposure)}</div>
+      </div>`).join("") || `<div class="empty">no workloads</div>`}
+    </div>`;
+  }).join("") || `<div class="empty">No targets in fleet.yaml</div>`;
+}
+
+async function loadRuns() {
+  const runs = await api("/api/runs");
+  if (!runs.length) return;
+  if (selectedRun === null || !runs.some((r) => r.id === selectedRun)) selectedRun = runs[0].id;
+  $("#runs").innerHTML = runs.map((r) => `<div class="run ${r.id === selectedRun ? "sel" : ""}" data-run="${r.id}">
+    <div class="item-head"><b>${esc(r.title)}</b> ${statusChip(r.status)}</div>
+    <div class="small">${esc(r.summary)}</div>
+    <div class="small">${time(r.started)} · ${r.items.length} workload${r.items.length === 1 ? "" : "s"} · ${esc(r.outcome || "")}</div>
+  </div>`).join("");
+}
+
+function vetBlock(events) {
+  const v = events.filter((e) => e.step === "vet" && e.data && e.data.verdict).pop();
+  if (!v) return "";
+  const d = v.data;
+  const evidence = d.flags.filter((f) => f.severity === "hard" || f.severity === "soft")
+    .map((f) => `<div class="evidence">${esc(f.file)}: ${esc(f.message)}\n${f.lines.map((l) => "+ " + esc(l)).join("\n")}</div>`).join("");
+  const ai = d.reviews.filter((r) => r.review.suspicious)
+    .map((r) => `<div class="small"><span class="st-ai">model (${esc(r.source)}):</span> ${esc(r.review.explanation)}</div>`).join("");
+  return `<div>${chip(VERDICT[d.verdict], "fix " + d.verdict)} <span class="small">${esc(d.artifact)} ${esc(d.to_version)}${d.cached ? " · cached verdict reused" : ""}</span></div>${evidence}${ai}`;
+}
+
+async function loadRun() {
+  if (selectedRun === null) return;
+  const { run, items, events } = await api(`/api/runs/${selectedRun}`);
+  $("#run-title").textContent = `${run.title} · decisions per workload`;
+  const runEvents = events.filter((e) => !e.item_id);
+  $("#run").innerHTML = `<div class="items">${items.map((it) => {
+    const w = it.workload, t = it.triage, d = it.decision, p = it.proof;
+    const evs = events.filter((e) => e.item_id === it.id);
+    const actions = ["awaiting_approval", "queued"].includes(it.status)
+      ? `<div><button class="primary" data-approve="${it.id}">${it.status === "queued" ? "Act now" : "Approve " + esc(d.action)}</button>
+         <button class="danger" data-reject="${it.id}">Reject</button></div>` : "";
+    return `<div class="item ${it.id === selectedItem ? "sel" : ""}" data-item="${it.id}">
+      <div class="item-head"><span class="rank">#${it.rank ?? "?"}</span><b>${esc(w.name)}</b>
+        <span class="small">${esc(w.target)} · ${esc(w.provider)}</span>
+        ${w.internet_exposed ? chip("c-red", "internet-exposed") : chip("c-grey", "internal")}
+        ${statusChip(it.status)}</div>
+      <div class="small">${esc((it.component.group ? it.component.group + ":" : "") + it.component.name)} ${esc(it.component.version)}${it.fixed_version ? " → fix " + esc(it.fixed_version) : " · no fix released"}</div>
+      ${t ? `<div><span class="st-ai">AI (${esc(it.triage_source)})</span> ${chip("c-violet", t.severity_for_this_workload)} ${chip("c-violet", t.reachable ? "reachable" : "not reachable")} ${esc(t.explanation)}</div>` : ""}
+      ${vetBlock(evs)}
+      ${d ? `<div><b>Policy:</b> ${esc(d.action)} → ${esc(d.decision.replace("_", " "))} <span class="small">${esc(d.reason)}</span></div>` : ""}
+      ${p && p.before && p.after ? `<div class="proof"><span class="v-${p.before.result}">${p.before.result}</span><span class="arrow">→</span><span class="v-${p.after.result}">${p.after.result}</span><span class="small">${esc(p.level)} · ${esc(p.after.via)}</span></div>`
+        : p ? `<div class="small">proof: ${esc(p.level)} ${esc(p.rescan || "")}</div>` : ""}
+      ${it.outcome && !["awaiting_approval", "queued"].includes(it.status) ? `<div class="small">${esc(it.outcome)}</div>` : ""}
+      ${actions}
+    </div>`;
+  }).join("") || `<div class="empty">${esc(run.outcome || "Working…")}</div>`}</div>
+  <h2 style="margin-top:16px">Decision log${selectedItem ? " · selected workload" : ""}</h2>
+  <div class="events">${(selectedItem ? events.filter((e) => e.item_id === selectedItem || !e.item_id) : events).map((e) => {
+    const body = [e.detail, e.data ? JSON.stringify(e.data, null, 2) : ""].filter(Boolean).join("\n\n");
+    return `<div class="ev"><span class="t">${time(e.ts)}</span><span class="st-${e.status}">${esc(e.step)}</span>
+      ${body ? `<details><summary>${esc(e.title)}</summary><pre>${esc(body)}</pre></details>` : `<span>${esc(e.title)}</span>`}</div>`;
+  }).join("")}</div>`;
+}
+
+document.addEventListener("click", async (ev) => {
+  const el = ev.target.closest("[data-scenario],[data-run],[data-item],[data-approve],[data-reject],#probe,#refresh");
+  if (!el) return;
+  try {
+    if (el.dataset.scenario) { await api(`/api/scenarios/${el.dataset.scenario}`, { method: "POST" }); selectedRun = null; await loadScenarios(); }
+    else if (el.dataset.approve) { el.disabled = true; await api(`/api/items/${el.dataset.approve}/approve`, { method: "POST" }); }
+    else if (el.dataset.reject) { el.disabled = true; await api(`/api/items/${el.dataset.reject}/reject`, { method: "POST" }); }
+    else if (el.dataset.run) { selectedRun = Number(el.dataset.run); selectedItem = null; }
+    else if (el.dataset.item) { const id = Number(el.dataset.item); selectedItem = selectedItem === id ? null : id; }
+    else if (el.id === "probe") { el.disabled = true; el.textContent = "Probing…"; await api("/api/probe", { method: "POST" }); el.disabled = false; el.textContent = "Probe fleet"; }
+    else if (el.id === "refresh") { await loadFleet(true); }
+    await tick();
+  } catch (e) { alert(e.message); el.disabled = false; }
+});
+
+async function tick() {
+  if (busy) return;
+  busy = true;
+  try { await Promise.all([loadRuns().then(loadRun), loadFleet()]); } catch (e) { console.error(e); }
+  busy = false;
+}
+loadScenarios();
+tick();
+setInterval(tick, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.6.0",
+  "id": "GHSA-jfh8-c2jp-5v3q",
+  "aliases": ["CVE-2021-44228"],
+  "summary": "Remote code injection in Log4j (Log4Shell)",
+  "details": "Apache Log4j2 2.0-beta9 through 2.15.0 (excluding security releases 2.12.2, 2.12.3, and 2.3.1) JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints. An attacker who can control log messages or log message parameters can execute arbitrary code loaded from LDAP servers when message lookup substitution is enabled. Any string logged from a request (headers, query string, form fields) is an attack vector.",
+  "affected": [
+    {
+      "package": {"ecosystem": "Maven", "name": "org.apache.logging.log4j:log4j-core"},
+      "ranges": [
+        {"type": "ECOSYSTEM", "events": [{"introduced": "2.13.0"}, {"fixed": "2.15.0"}]},
+        {"type": "ECOSYSTEM", "events": [{"introduced": "2.0-beta9"}, {"fixed": "2.3.1"}]},
+        {"type": "ECOSYSTEM", "events": [{"introduced": "2.4"}, {"fixed": "2.12.2"}]}
+      ]
+    }
+  ],
+  "references": [{"type": "ADVISORY", "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"}],
+  "database_specific": {
+    "severity": "CRITICAL",
+    "patchpilot": {
+      "target_version": "2.17.1",
+      "bump_together": ["org.apache.logging.log4j:log4j-api"],
+      "grep": ["org.apache.logging.log4j", "LOG.info", "LOG.error"],
+      "probe": "log4shell",
+      "review_focus": ["JndiManager.java", "JndiLookup.java", "MessagePatternConverter.java"],
+      "mitigation": {"pattern": "${", "fields": ["header:X-Api-Version", "query"]}
+    }
+  }
+}

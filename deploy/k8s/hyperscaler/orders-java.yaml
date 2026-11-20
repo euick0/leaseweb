@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-java
+  namespace: shop
+  labels: {app.kubernetes.io/name: orders-java}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: orders-java, track: stable}}
+  template:
+    metadata: {labels: {app: orders-java, track: stable, app.kubernetes.io/name: orders-java}}
+    spec:
+      containers:
+        - name: app
+          image: __REGISTRY__/orders-java:v1
+          ports: [{containerPort: 8080}]
+          env: [{name: DB_PASSWORD, value: demo-orders-db-password}]
+          readinessProbe:
+            httpGet: {path: /health, port: 8080}
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-java
+  namespace: shop
+spec:
+  selector: {app: orders-java, track: stable}
+  ports: [{name: http, port: 8080, targetPort: 8080}]
+---
+# Gateway in front of orders-java: the only route in from the internet, and where
+# virtual patches go (ConfigMap orders-java-gateway-mitigations).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orders-java-gateway-conf
+  namespace: shop
+  labels: {patchpilot.io/role: gateway}
+data:
+  nginx.conf: |
+    worker_processes 1;
+    events { worker_connections 256; }
+    http {
+        access_log /dev/stdout;
+        error_log /dev/stderr warn;
+        server {
+            listen 80;
+            include /etc/nginx/pp/mitigations/*.conf;
+            location = /gateway-health { return 200 "ok\n"; }
+            location / {
+                proxy_pass http://orders-java:8080;
+                proxy_set_header Host $host;
+                proxy_connect_timeout 2s;
+                proxy_read_timeout 10s;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-java-gateway
+  namespace: shop
+  labels: {patchpilot.io/role: gateway}
+  annotations: {patchpilot.io/gateway-for: orders-java}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: orders-java-gateway}}
+  template:
+    metadata: {labels: {app: orders-java-gateway}}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+          readinessProbe:
+            httpGet: {path: /gateway-health, port: 80}
+            periodSeconds: 2
+          volumeMounts:
+            - {name: conf, mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf}
+            - {name: mitigations, mountPath: /etc/nginx/pp/mitigations}
+      volumes:
+        - name: conf
+          configMap: {name: orders-java-gateway-conf}
+        - name: mitigations
+          configMap: {name: orders-java-gateway-mitigations, optional: true}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-java-gateway
+  namespace: shop
+spec:
+  type: LoadBalancer
+  selector: {app: orders-java-gateway}
+  ports: [{name: http, port: 8081, targetPort: 80}]

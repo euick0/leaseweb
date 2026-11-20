@@ -1,0 +1,28 @@
+# Callback listener for the safe Log4Shell probe. Records connections, serves nothing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: callback
+  namespace: shop
+  labels: {patchpilot.io/role: infra}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: callback}}
+  template:
+    metadata: {labels: {app: callback}}
+    spec:
+      containers:
+        - name: callback
+          image: __REGISTRY__/pp-callback:v1
+          ports: [{containerPort: 1389}, {containerPort: 8000}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: callback
+  namespace: shop
+spec:
+  selector: {app: callback}
+  ports:
+    - {name: ldap, port: 1389, targetPort: 1389}
+    - {name: api, port: 8000, targetPort: 8000}
