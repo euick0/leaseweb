@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28">
+  <symbol id="mark" viewBox="0 0 28 28">
+    <polygon points="17,6 27,1.5 27,11.5 17,8.5" fill="#FFD23F" opacity="0.9"/>
+    <path d="M10.5 5.5 L14 2.5 L17.5 5.5 Z" fill="#F1EFE7"/>
+    <rect x="11" y="5.5" width="6" height="3.5" fill="#FFD23F"/>
+    <path d="M11 9 H17 L19 24 H9 Z" fill="#F1EFE7"/>
+    <rect x="11.6" y="13" width="4.8" height="2" fill="#12120F"/>
+    <rect x="11" y="18" width="6" height="2" fill="#12120F"/>
+    <rect x="6" y="24" width="16" height="2" rx="1" fill="#F1EFE7"/>
+  </symbol>
+  <rect width="28" height="28" rx="7" fill="#12120F"/>
+  <use href="#mark"/>
+</svg>
