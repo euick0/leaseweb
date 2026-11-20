@@ -9,6 +9,7 @@ need() { command -v "$1" >/dev/null 2>&1; }
 
 need docker || { echo "Docker Engine is required (https://docs.docker.com/engine/install/)"; exit 1; }
 need uv     || curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"          # where the uv installer puts it
 need k3d    || curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 need kubectl || { curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
                   && sudo install -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl; }

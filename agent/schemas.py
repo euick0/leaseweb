@@ -52,6 +52,7 @@ class Flag(BaseModel):
 class FileReview(BaseModel):
     file: str
     source: Literal["live", "cache", "seed"]
+    part: Optional[str] = None          # "2/3" when the file's diff was reviewed in several parts
     review: ChunkReview
 
 
@@ -60,12 +61,14 @@ class VetResult(BaseModel):
     artifact: str
     from_version: str
     to_version: str
-    verdict: Literal["clean", "suspicious", "malicious"]
+    # unreviewed: nothing found, but the model did not answer for every file it had to review
+    verdict: Literal["clean", "unreviewed", "suspicious", "malicious"]
     reasons: list[str]
     flags: list[Flag]
     reviews: list[FileReview]
     files_changed: int
     files_reviewed: int
+    unreviewed: list[str] = Field(default_factory=list)   # files that had to be reviewed and were not
     sha256: Optional[str] = None
     model: Optional[str] = None
     cached: bool = False

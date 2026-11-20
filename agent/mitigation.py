@@ -4,6 +4,8 @@ The model only proposes a literal pattern and the request fields to check. This
 module decides what reaches nginx: the pattern is length-limited and fully
 regex-escaped, every special character also matches its percent-encoded form
 (so `${` also catches `%24%7B` and `$%7b`), and field names are whitelisted.
+Whatever fields the model names, the rule also checks the request URI (path
+and query string): an exploit string moved into the URL must not get through.
 The target driver then validates the result with `nginx -t` or a gateway
 rollout before any traffic sees it.
 """
@@ -48,8 +50,9 @@ def render(advisory_id: str, pattern: str, fields: list[str]) -> str:
     if not fields:
         raise InvalidMitigation("no request fields to check")
     rx = regex(pattern)
+    fields = sorted({*fields, "path"})
     lines = [f"# PatchPilot virtual patch for {advisory_id}: block {pattern!r} in {', '.join(fields)}"]
-    for field in sorted(set(fields)):
+    for field in fields:
         lines.append(f'if ({variable(field)} ~* "{rx}") {{ return 403; }}')
     return "\n".join(lines) + "\n"
 

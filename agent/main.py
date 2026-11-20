@@ -1,10 +1,14 @@
 """PatchPilot API and dashboard.
 
-  uv run uvicorn agent.main:app --host 0.0.0.0 --port 8000
+  uv run uvicorn agent.main:app --host 127.0.0.1 --port 8000
 
 A background thread watches feed/ and runs the pipeline for every advisory it
 has not seen. The dashboard (agent/static) only reads the decision log and
 posts approvals.
+
+Every /api route needs a bearer token (agent/auth.py); the token names the
+operator, and approvals are recorded against that name. Publishing a scenario
+and wiping the decision log are demo controls: they exist only with PP_DEMO=1.
 """
 from __future__ import annotations
 
@@ -14,11 +18,11 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, db, feed, fleet, llm, pipeline, probes
+from . import auth, config, db, feed, fleet, llm, pipeline, policy, probes
 
 STATIC = Path(__file__).resolve().parent / "static"
 _run_lock = threading.Lock()
@@ -41,6 +45,11 @@ def _watch_feed(stop: threading.Event) -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    policy.fleet()                        # a bad policy file stops the agent here, not mid-run
+    llm.check_sovereignty()
+    if auth.generated():
+        print(f"[auth] no PP_API_TOKENS set; token for this run: {auth.generated()}\n"
+              f"[auth] dashboard: http://localhost:8000/#token={auth.generated()}", flush=True)
     config.FEED_DIR.mkdir(parents=True, exist_ok=True)
     stop = threading.Event()
     watcher = threading.Thread(target=_watch_feed, args=(stop,), daemon=True)
@@ -51,23 +60,29 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="PatchPilot", lifespan=lifespan)
+api = APIRouter(prefix="/api", dependencies=[Depends(auth.require)])
+
+
+def _demo_only() -> None:
+    if not config.DEMO:
+        raise HTTPException(404, "demo controls are off (start the agent with PP_DEMO=1)")
 
 
 # ------------------------------------------------------------------- fleet
 
-@app.get("/api/fleet")
+@api.get("/fleet")
 def get_fleet(refresh: bool = False):
     fl = fleet.get()
     workloads = fl.discover(max_age=0 if refresh else 10)
     latest = {}
     for p in db.latest_probes():
         latest.setdefault(p["workload_id"], []).append(p)
-    return {"llm": {"providers": llm.describe(), "mode": config.LLM_MODE},
+    return {"llm": llm.status(), "demo": config.DEMO,
             "environments": fl.environments(),
             "workloads": [{**w.model_dump(), "probes": latest.get(w.id, [])} for w in workloads]}
 
 
-@app.post("/api/probe")
+@api.post("/probe")
 def probe_all():
     """Run every relevant probe on every workload's live path."""
     fl = fleet.get()
@@ -83,7 +98,7 @@ def probe_all():
 
 # -------------------------------------------------------------------- runs
 
-@app.get("/api/runs")
+@api.get("/runs")
 def runs():
     severity = {a["id"]: feed.advisory_severity(a) for a in _scenarios() + feed.list_feed()}
     out = []
@@ -94,7 +109,7 @@ def runs():
     return out
 
 
-@app.get("/api/runs/{run_id}")
+@api.get("/runs/{run_id}")
 def run(run_id: int, after: int = 0):
     r = db.get_run(run_id)
     if not r:
@@ -102,19 +117,19 @@ def run(run_id: int, after: int = 0):
     return {"run": r, "items": db.items(run_id), "events": db.events(run_id, after)}
 
 
-@app.post("/api/items/{item_id}/approve")
-def approve(item_id: int):
+@api.post("/items/{item_id}/approve")
+def approve(item_id: int, actor: str = Depends(auth.require)):
     try:
-        pipeline.approve(item_id)
+        pipeline.approve(item_id, actor)
     except ValueError as exc:
         raise HTTPException(409, str(exc))
     return {"ok": True}
 
 
-@app.post("/api/items/{item_id}/reject")
-def reject(item_id: int):
+@api.post("/items/{item_id}/reject")
+def reject(item_id: int, actor: str = Depends(auth.require)):
     try:
-        pipeline.reject(item_id)
+        pipeline.reject(item_id, actor)
     except ValueError as exc:
         raise HTTPException(409, str(exc))
     return {"ok": True}
@@ -126,8 +141,10 @@ def _scenarios() -> list[dict]:
     return [feed.load(p) for p in sorted(config.SCENARIOS_DIR.glob("*.json"))]
 
 
-@app.get("/api/scenarios")
+@api.get("/scenarios")
 def scenarios():
+    if not config.DEMO:
+        return []
     seen = {r["advisory_id"] for r in db.list_runs()}
     return [{"name": p.stem, "id": json.loads(p.read_text())["id"],
              "title": feed.title(json.loads(p.read_text())), "summary": json.loads(p.read_text()).get("summary"),
@@ -135,7 +152,7 @@ def scenarios():
             for p in sorted(config.SCENARIOS_DIR.glob("*.json"))]
 
 
-@app.post("/api/scenarios/{name}")
+@api.post("/scenarios/{name}", dependencies=[Depends(_demo_only)])
 def trigger(name: str):
     """Publish a scenario's advisory into the feed, as if it had just arrived."""
     src = config.SCENARIOS_DIR / f"{name}.json"
@@ -145,7 +162,7 @@ def trigger(name: str):
     return {"ok": True, "advisory": json.loads(src.read_text())["id"]}
 
 
-@app.post("/api/reset")
+@api.post("/reset", dependencies=[Depends(_demo_only)])
 def reset():
     """Forget every run, probe and vet verdict (called by scripts/reset_demo.sh
     after it has restored the fleet). The LLM answer cache is kept."""
@@ -159,6 +176,9 @@ def reset():
 
 
 # --------------------------------------------------------------- dashboard
+
+app.include_router(api)
+
 
 @app.get("/")
 def index():
