@@ -7,14 +7,14 @@ Facts come from standard fields:
   exposure           Services of type LoadBalancer/NodePort and Ingress backends
   health path        the container's readiness probe
 
-Two Lighthouse conventions, both plain labels/annotations:
+Two LightHouse conventions, both plain labels/annotations:
   lighthouse.io/gateway-for: <deployment>   on an nginx gateway Deployment in
       front of a workload; virtual patches go into its ConfigMap
       `<gateway>-mitigations`, mounted at /etc/nginx/pp/mitigations
   lighthouse.io/role: gateway | canary | infra   keeps helpers out of the workload list
 
 All HTTP to workloads (health, probes, canary checks) goes through the API
-server's service and pod proxy, so Lighthouse needs nothing but a kubeconfig.
+server's service and pod proxy, so LightHouse needs nothing but a kubeconfig.
 """
 from __future__ import annotations
 
@@ -283,7 +283,7 @@ class KubernetesTarget:
         spec["template"]["metadata"]["labels"] = labels
         spec["template"]["spec"]["containers"][0]["image"] = image
         for c in spec["template"]["spec"]["containers"]:
-            c.pop("readinessProbe", None)        # Lighthouse checks health itself, through the pod proxy
+            c.pop("readinessProbe", None)        # LightHouse checks health itself, through the pod proxy
         spec.pop("strategy", None)
         body = {"apiVersion": "apps/v1", "kind": "Deployment",
                 "metadata": {"name": name, "labels": {ROLE: "canary", CANARY_OF: wl.name}}, "spec": spec}

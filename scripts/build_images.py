@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build the v1 images of every demo service from state/repos/, labelled with
-their source repository exactly as Lighthouse labels its own builds.
+their source repository exactly as LightHouse labels its own builds.
 
   uv run scripts/build_images.py            # local tags for the Compose fallback
   uv run scripts/build_images.py --push     # push to the registry in fleet.yaml (k3d)

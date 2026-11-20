@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Read-only Lighthouse scan of a real repository (no build, no deploy).
+"""Read-only LightHouse scan of a real repository (no build, no deploy).
 
   python scripts/scan_repo.py <repo> [--triage N] [--internal] [--name NAME]
 
 1. inventory  - Maven: every pom.xml, with ${properties} and dependencyManagement
-                resolved. Python: every requirements*.txt, through Lighthouse's
+                resolved. Python: every requirements*.txt, through LightHouse's
                 own PyPI pin parser (name==version; unpinned lines are counted)
 2. advisories - real OSV records for those packages (api.osv.dev)
-3. match      - Lighthouse's own matcher decides which advisories apply
+3. match      - LightHouse's own matcher decides which advisories apply
                 (and is cross-checked against OSV's answer)
-4. triage     - optional: Lighthouse's AI triage for the N worst runtime
+4. triage     - optional: LightHouse's AI triage for the N worst runtime
                 matches, with import sites found in the repository as evidence
 
 Writes <repo>-lighthouse-report.md next to the repository. Model answers are
@@ -256,7 +256,7 @@ def main() -> None:
             runtime = bool(info["scopes"] - {"test", "provided"})
             matches.append((comp, info, adv, ours[0], runtime))
     matches.sort(key=lambda m: (not m[4], SEV_ORDER.get(severity(m[2]), 9), m[0].coordinate))
-    print(f"[match] Lighthouse's matcher confirms {len(matches)} matches; {len(disagreements)} OSV matches rejected")
+    print(f"[match] LightHouse's matcher confirms {len(matches)} matches; {len(disagreements)} OSV matches rejected")
 
     triaged = {}
     if args.triage:
@@ -286,13 +286,13 @@ def render(name, n_poms, n_reqs, comps, unresolved, unpinned, matches, disagreem
         if runtime:
             by_sev[severity(adv)] += 1
     affected = {(m[0].coordinate, m[0].version) for m in matches if m[4]}
-    lines = [f"# Lighthouse read-only scan: {name}", "",
+    lines = [f"# LightHouse read-only scan: {name}", "",
              f"- Inventory: {n_poms} pom.xml, {n_reqs} requirements files, {len(comps)} pinned third-party packages"
              f" ({len(unresolved)} Maven without a resolvable version, {len(unpinned)} Python unpinned: skipped)",
              f"- {len(affected)} runtime packages with known advisories: "
              + (", ".join(f"{n} {s.lower()}" for s, n in sorted(by_sev.items(), key=lambda x: SEV_ORDER.get(x[0], 9)))
                 or "none"),
-             f"- OSV listed {len(disagreements)} more matches that Lighthouse's version matcher rejected",
+             f"- OSV listed {len(disagreements)} more matches that LightHouse's version matcher rejected",
              f"- Exposure: {exposure}", ""]
     if triaged:
         lines += ["## AI triage (worst runtime matches)", ""]
@@ -307,8 +307,8 @@ def render(name, n_poms, n_reqs, comps, unresolved, unpinned, matches, disagreem
         lines.append(f"| {comp.coordinate} | {comp.version} | {feed.title(adv)} ({adv['id']}) | "
                      f"{severity(adv)} | {m.fixed_version or 'none'} | {', '.join(sorted(info['scopes']))} |")
     if disagreements:
-        lines += ["", "## OSV matches Lighthouse's matcher rejected", "",
-                  "Either OSV data Lighthouse ignores (e.g. GIT-only ranges) or a gap in `agent/versions.py`.", "",
+        lines += ["", "## OSV matches LightHouse's matcher rejected", "",
+                  "Either OSV data LightHouse ignores (e.g. GIT-only ranges) or a gap in `agent/versions.py`.", "",
                   "| Package | Version | Advisory |", "|---|---|---|"]
         lines += [f"| {c.coordinate} | {c.version} | {a['id']} |" for c, a in disagreements]
     return "\n".join(lines) + "\n"

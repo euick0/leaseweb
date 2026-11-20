@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lighthouse</title>
+<title>LightHouse</title>
 <link rel="icon" href="/static/lighthouse.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/lighthouse.css">
 </head>
 <body>
 <div class="login" id="login" hidden>
-  <section class="login-brand" aria-label="About Lighthouse">
+  <section class="login-brand" aria-label="About LightHouse">
     <div class="beam" aria-hidden="true"></div>
-    <div class="brand-row"><svg class="logo" width="40" height="40" aria-hidden="true"><use href="/static/lighthouse.svg#mark"/></svg><span class="wordmark">Lighthouse</span></div>
+    <div class="brand-row"><svg class="logo" width="40" height="40" aria-hidden="true"><use href="/static/lighthouse.svg#mark"/></svg><span class="wordmark">LightHouse</span></div>
     <div class="pitch">
       <h1>One advisory in. A proven fix for every service out.</h1>
-      <p>Lighthouse finds the services a new vulnerability really affects, fixes them, and proves the fix worked. It asks a person when policy says so.</p>
+      <p>LightHouse finds the services a new vulnerability really affects, fixes them, and proves the fix worked. It asks a person when policy says so.</p>
     </div>
     <ul class="facts-row"><li>Runs on your own servers</li><li>Every approval is recorded by name</li><li>Rolls back on any failed step</li></ul>
   </section>
@@ -26,7 +26,7 @@
       <div class="err" id="login-err" role="alert"></div>
       <button class="primary big" type="submit">Sign in</button>
       <details class="help"><summary>Where do I find my token?</summary>
-        <ul><li>Ask whoever runs Lighthouse; they set one per person in <code>PP_API_TOKENS</code>.</li>
+        <ul><li>Ask whoever runs LightHouse; they set one per person in <code>PP_API_TOKENS</code>.</li>
           <li>Running it yourself? The agent prints a token when it starts.</li>
           <li>A link ending in <code>#token=…</code> signs you in once, and the browser remembers it.</li></ul></details>
     </form>
@@ -34,9 +34,9 @@
 </div>
 
 <div class="app" id="app" hidden>
-  <aside class="side" aria-label="Lighthouse">
+  <aside class="side" aria-label="LightHouse">
     <a class="brand" href="#/overview"><svg class="logo" width="28" height="28" aria-hidden="true"><use href="/static/lighthouse.svg#mark"/></svg>
-      <span><b>Lighthouse</b><span class="tag">Proven fixes across the fleet</span></span></a>
+      <span><b>LightHouse</b><span class="tag">Proven fixes across the fleet</span></span></a>
     <nav class="nav" aria-label="Sections">
       <a href="#/overview" data-page="overview"><svg aria-hidden="true"><use href="#i-dash"/></svg><span>Overview</span></a>
       <a href="#/advisories" data-page="advisories"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Advisories</span></a>
@@ -62,7 +62,7 @@
         <button id="probe" class="act-only dark" title="Run the safe exploit check for every known advisory on every service">Run exploit checks</button>
       </div>
     </div>
-    <div class="conn" id="conn" hidden>Can't reach the Lighthouse agent. Retrying…</div>
+    <div class="conn" id="conn" hidden>Can't reach the LightHouse agent. Retrying…</div>
     <main id="page"></main>
   </div>
 </div>
@@ -120,7 +120,7 @@ function signedIn() { $("#login").hidden = true; $("#app").hidden = false; }
 const WAITING = ["awaiting_approval", "queued"];
 const STATUS = {
   matched: ["c-grey", "Found", "Affected service found; assessment pending"],
-  running: ["c-blue", "In progress", "Lighthouse is working on it"],
+  running: ["c-blue", "In progress", "LightHouse is working on it"],
   awaiting_approval: ["c-amber", "Needs approval", "Waiting for a human to approve or reject"],
   queued: ["c-grey", "Scheduled", "Scheduled for the next maintenance window; you can act now"],
   done: ["c-green", "Resolved", "Fixed or shielded, with proof"],
@@ -278,7 +278,7 @@ function envCard(env, wls) {
 }
 
 function emptyAdvisories() {
-  return `<div class="empty">No advisories yet. Lighthouse picks up every advisory that lands in the feed and decides what to do for each affected service.
+  return `<div class="empty">No advisories yet. LightHouse picks up every advisory that lands in the feed and decides what to do for each affected service.
     ${me.mayAct ? "Add one by id (CVE-… or GHSA-…) at the top" + (S.fleet?.demo ? ", or pick a scenario from the Demo menu." : ".") : ""}</div>`;
 }
 
@@ -289,13 +289,13 @@ const SKELETON = {
     <div class="kpis" id="kpis"></div>
     <section class="mapcard" aria-labelledby="map-title">
       <div class="map-top"><div><h2 id="map-title">Service map</h2>
-        <p>Drawn from what Lighthouse discovers in each environment. Click a service to see what is happening there. Red lines are paths an attacker on the internet can reach.</p></div>
+        <p>Drawn from what LightHouse discovers in each environment. Click a service to see what is happening there. Red lines are paths an attacker on the internet can reach.</p></div>
         <div class="map-tools" id="map-tools"></div></div>
       <div id="map-body"></div>
     </section>
     <div class="grid2">
       <section id="approvals-box"><div class="sec-head"><h2>Needs your decision</h2><a href="#/approvals">All approvals →</a></div><div id="ov-appr" class="items"></div></section>
-      <section><div class="sec-head"><h2>What Lighthouse did</h2><a href="#/advisories">All advisories →</a></div><ol class="act" id="ov-act"></ol></section>
+      <section><div class="sec-head"><h2>What LightHouse did</h2><a href="#/advisories">All advisories →</a></div><ol class="act" id="ov-act"></ol></section>
     </div>`,
   advisories: `<div class="cols"><section><h2>Advisories</h2><div id="adv-list"></div></section>
     <section><div id="adv-head"></div><div class="tabs" id="adv-tabs"></div><div id="adv-body"></div></section></div>`,
@@ -315,10 +315,10 @@ const MAP_PILL = { safe: "Safe", found: "Found · checking", exploit: "Exploitab
                    scheduled: "Scheduled", proposed: "Fix proposed", blocked: "Fix refused", shielded: "Shielded", resolved: "Resolved · proven", ignored: "No action needed" };
 const MAP_TEXT = {
   safe: "No open advisory affects this service.",
-  found: "An open advisory names a package this service ships. Lighthouse is checking whether it can really be attacked before it changes anything.",
+  found: "An open advisory names a package this service ships. LightHouse is checking whether it can really be attacked before it changes anything.",
   exploitX: "The exploit check worked from the internet. Policy acts straight away on internet-facing services.",
   exploitI: "The exploit check worked from inside the network. Internal services wait for the maintenance window unless you act.",
-  progress: "Lighthouse is building the fix, testing it on a canary or rolling it out. Any failed step rolls back on its own.",
+  progress: "LightHouse is building the fix, testing it on a canary or rolling it out. Any failed step rolls back on its own.",
   approval: "A fix is ready. Policy needs a person to approve it before it goes out.",
   scheduled: "Scheduled for the next maintenance window. You can do it now.",
   proposed: "Verified on a canary. A pull request waits for your team's CI/CD to roll it out.",
@@ -421,7 +421,7 @@ function mapDetail(states, L) {
     if (!g) return "";
     return `<span class="where">${esc(g.env.label)} · ${esc(g.env.provider || g.env.kind)}</span><span class="nm">gateway</span>
       <span><span class="pill ${g.shield ? "rule" : ""}">${g.shield ? "Rule active" : "No rule needed"}</span></span>
-      <p>${g.shield ? "A virtual patch is active here: a rule that blocks the attack in front of the service." : "Routes public traffic to the internet-facing services in this environment. If a fix is blocked, Lighthouse can add a rule here that stops the attack. That always needs approval."}</p>
+      <p>${g.shield ? "A virtual patch is active here: a rule that blocks the attack in front of the service." : "Routes public traffic to the internet-facing services in this environment. If a fix is blocked, LightHouse can add a rule here that stops the attack. That always needs approval."}</p>
       ${g.names.length ? `<dl><dt>Gateways</dt><dd class="mono">${g.names.map(esc).join(", ")}</dd></dl>` : ""}`;
   }
   const w = f.workloads.find((x) => x.id === sel);
@@ -448,10 +448,10 @@ function renderMap(states) {
   const f = S.fleet, L = mapLayout(states);
   if (!f.workloads.length) {
     set("map-tools", "");
-    set("map-body", `<div class="map-empty"><div><b>No services yet</b><p class="muted" style="color:#CFCBBE;margin:6px 0 0">Lighthouse draws this map from the clusters and Docker hosts it is pointed at.${f.environments.some((e) => e.error) ? " Some environments could not be reached: " + f.environments.filter((e) => e.error).map((e) => esc(e.label)).join(", ") + "." : ""}</p></div>
+    set("map-body", `<div class="map-empty"><div><b>No services yet</b><p class="muted" style="color:#CFCBBE;margin:6px 0 0">LightHouse draws this map from the clusters and Docker hosts it is pointed at.${f.environments.some((e) => e.error) ? " Some environments could not be reached: " + f.environments.filter((e) => e.error).map((e) => esc(e.label)).join(", ") + "." : ""}</p></div>
       <ol><li><b>1. List where code lives and runs</b>Add your repositories as <code>sources</code> and your clusters or hosts as <code>targets</code> in fleet.yaml.</li>
         <li><b>2. Check the setup</b>Run <code>uv run python -m agent.doctor</code>. It lists what is still missing, piece by piece.</li>
-        <li><b>3. Discover</b>Press Rediscover at the top. Lighthouse asks every environment for its services.</li></ol></div>`);
+        <li><b>3. Discover</b>Press Rediscover at the top. LightHouse asks every environment for its services.</li></ol></div>`);
     return;
   }
   const openAdv = S.runs.filter((r) => r.items.some((i) => !["done", "ignored"].includes(i.status))).length;
@@ -493,13 +493,13 @@ function renderOverview() {
   const down = f.environments.filter((e) => e.error).length;
 
   let head, sum;
-  if (!n) { head = "Let's find your services"; sum = "Lighthouse hasn't discovered anything yet. Point it at your clusters or Docker hosts and it will draw every service here."; }
-  else if (!affected) { head = `All ${plural(n, "service")} are safe`; sum = "No open advisory affects your fleet. Lighthouse keeps watching the advisory feeds and will show anything new on the map."; }
+  if (!n) { head = "Let's find your services"; sum = "LightHouse hasn't discovered anything yet. Point it at your clusters or Docker hosts and it will draw every service here."; }
+  else if (!affected) { head = `All ${plural(n, "service")} are safe`; sum = "No open advisory affects your fleet. LightHouse keeps watching the advisory feeds and will show anything new on the map."; }
   else {
     head = waiting ? `${plural(waiting, "decision needs", "decisions need")} you` : exploit ? `${plural(exploit, "service")} can be attacked`
-      : failed ? `${plural(failed, "fix", "fixes")} need a look` : working ? `Lighthouse is working on ${plural(working, "service")}` : "Every affected service is handled";
+      : failed ? `${plural(failed, "fix", "fixes")} need a look` : working ? `LightHouse is working on ${plural(working, "service")}` : "Every affected service is handled";
     const parts = [`${affected} of your ${n} services ${affected === 1 ? "is" : "are"} affected${advN ? ` by ${plural(advN, "open advisory", "open advisories")}` : ""}.`];
-    if (exploit) parts.push(`${exploit} can be attacked right now; Lighthouse acts on its own where policy allows.`);
+    if (exploit) parts.push(`${exploit} can be attacked right now; LightHouse acts on its own where policy allows.`);
     if (waiting) parts.push(`${plural(waiting, "fix is", "fixes are")} waiting for your OK.`);
     if (failed) parts.push(`${plural(failed, "action")} did not complete.`);
     if (fixed) parts.push(`${fixed} already fixed or shielded, with proof.`);
@@ -508,7 +508,7 @@ function renderOverview() {
   if (down) sum += ` ${plural(down, "environment")} could not be reached.`;
   set("ov-head", esc(head)); set("ov-sum", esc(sum));
 
-  set("ov-intro", introHidden() ? "" : `<section class="intro"><div class="intro-head"><h2>New here? This is what Lighthouse does with every advisory</h2><button id="hide-intro">Got it, hide this</button></div>
+  set("ov-intro", introHidden() ? "" : `<section class="intro"><div class="intro-head"><h2>New here? This is what LightHouse does with every advisory</h2><button id="hide-intro">Got it, hide this</button></div>
     <ol class="steps4"><li><span class="n">1</span><span><b>Watch</b><span class="d">Reads the advisory feeds and finds every service that ships the affected package.</span></span></li>
       <li><span class="n">2</span><span><b>Check</b><span class="d">Sends a harmless test request to see if the service can really be attacked.</span></span></li>
       <li><span class="n">3</span><span><b>Fix</b><span class="d">Upgrades the package, reviews the change, tries it on a canary. Asks you when policy says so.</span></span></li>
@@ -532,7 +532,7 @@ function renderOverview() {
     .sort((a, b) => b.ts - a.ts || b.id - a.id).slice(0, 8);
   set("ov-act", evs.map((e) => `<li><span class="t">${time(e.ts)}</span><span class="d ${esc(e.status)}"></span>
       <span><b>${esc(STEP[e.step] || e.step)}</b> · <a href="#/advisories/${e.run.id}">${esc(e.run.title)}</a><br><span class="small">${esc(e.title)}</span></span></li>`).join("")
-    || `<li style="display:block;color:var(--muted)">${n ? "Quiet. Lighthouse is watching the advisory feeds." : "Nothing yet. Activity shows up here once Lighthouse has services to watch."}${me.mayAct && S.fleet.demo ? " Try a scenario from Demo scenarios at the top." : ""}</li>`);
+    || `<li style="display:block;color:var(--muted)">${n ? "Quiet. LightHouse is watching the advisory feeds." : "Nothing yet. Activity shows up here once LightHouse has services to watch."}${me.mayAct && S.fleet.demo ? " Try a scenario from Demo scenarios at the top." : ""}</li>`);
 }
 
 function renderAdvisories() {
@@ -543,7 +543,7 @@ function renderAdvisories() {
       <div class="small">${ago(x.started)} · ${plural(x.items.length, "service")}</div></a>`).join("") || emptyAdvisories());
   const detail = S.details.get(view.run);
   if (!detail) {
-    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what Lighthouse decided for each affected service.</div>`);
+    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what LightHouse decided for each affected service.</div>`);
     set("adv-tabs", ""); set("adv-body", "");
     return;
   }
@@ -602,7 +602,7 @@ function render() {
   if (page !== r.name) { page = r.name; last.clear(); $("#page").innerHTML = SKELETON[r.name]; if (r.name === "fleet") $("#fl-filter").value = view.filter; }
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === r.name));
   $("#title").textContent = PAGES[r.name];
-  document.title = `${PAGES[r.name]} · Lighthouse`;
+  document.title = `${PAGES[r.name]} · LightHouse`;
   const needs = S.approvals.filter((a) => a.status === "awaiting_approval").length;
   $("#badge").hidden = !needs; $("#badge").textContent = needs;
   const llm = S.fleet.llm;
@@ -698,7 +698,7 @@ document.addEventListener("click", async (ev) => {
       $("#demo").open = false;
       const res = await api(`/api/scenarios/${el.dataset.scenario}`, { method: "POST" });
       view.followAfter = S.runs[0]?.id ?? 0;
-      toast(`Published ${res.advisory} to the feed. Lighthouse is on it.`);
+      toast(`Published ${res.advisory} to the feed. LightHouse is on it.`);
       location.hash = "#/advisories";
     } else if (el.dataset.approve) {
       el.disabled = true;
@@ -760,7 +760,7 @@ $("#add-advisory").addEventListener("submit", async (ev) => {
     const res = await api(`/api/advisories/${encodeURIComponent(id)}`, { method: "POST" });
     $("#advisory-id").value = "";
     view.followAfter = S.runs[0]?.id ?? 0;
-    toast(`Fetched ${res.advisory} from OSV. Lighthouse is on it.`);
+    toast(`Fetched ${res.advisory} from OSV. LightHouse is on it.`);
     location.hash = "#/advisories";
   } catch (e) {
     if (!(e instanceof SignedOut)) toast(e.message, true);

@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Settings · Lighthouse</title>
+<title>Settings · LightHouse</title>
 <link rel="icon" href="/static/lighthouse.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/lighthouse.css">
 </head>
 <body>
 <div class="app" id="app">
-  <aside class="side" aria-label="Lighthouse">
+  <aside class="side" aria-label="LightHouse">
     <a class="brand" href="/#/overview"><svg class="logo" width="28" height="28" aria-hidden="true"><use href="/static/lighthouse.svg#mark"/></svg>
-      <span><b>Lighthouse</b><span class="tag">Proven fixes across the fleet</span></span></a>
+      <span><b>LightHouse</b><span class="tag">Proven fixes across the fleet</span></span></a>
     <nav class="nav" aria-label="Sections">
       <a href="/#/overview"><svg aria-hidden="true"><use href="#i-dash"/></svg><span>Overview</span></a>
       <a href="/#/advisories"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Advisories</span></a>
@@ -36,7 +36,7 @@
       <div class="note" id="readonly" hidden>You can look at these settings but not change them. Ask someone listed under <code>auth.admins</code> in the server config.</div>
       <div class="set-layout">
         <nav class="subnav" id="subnav" aria-label="Settings sections">
-          <a href="#autonomy" data-sec="autonomy"><b>Autonomy<i class="dirty" hidden></i></b><span>What Lighthouse may do on its own</span></a>
+          <a href="#autonomy" data-sec="autonomy"><b>Autonomy<i class="dirty" hidden></i></b><span>What LightHouse may do on its own</span></a>
           <a href="#scope" data-sec="scope"><b>What to watch<i class="dirty" hidden></i></b><span>Environments, services and packages</span></a>
           <a href="#models" data-sec="models"><b>AI models<i class="dirty" hidden></i></b><span>Which models answer, in what order</span></a>
           <a href="#system" data-sec="system"><b>System</b><span>Health of this server</span></a>
@@ -48,7 +48,7 @@
           <!-- autonomy -->
           <div class="panel" data-panel="autonomy" hidden>
             <div class="panel-head"><h2>Autonomy</h2>
-              <p>Decide what Lighthouse may do without asking. Pick a level, then fine-tune single rules if you need to. Changes apply to the next decision; nothing already running changes.</p></div>
+              <p>Decide what LightHouse may do without asking. Pick a level, then fine-tune single rules if you need to. Changes apply to the next decision; nothing already running changes.</p></div>
             <section aria-labelledby="lvl-h"><div class="sec-head"><h2 id="lvl-h">Level</h2><span id="lvl-note" class="small"></span></div>
               <div class="levels" id="levels"></div></section>
             <section aria-labelledby="rules-h"><div class="sec-head"><h2 id="rules-h">Rules</h2><span class="small">Each rule says what happens in one situation.</span></div>
@@ -59,7 +59,7 @@
           <!-- scope -->
           <div class="panel" data-panel="scope" hidden>
             <div class="panel-head"><h2>What to watch</h2>
-              <p>Lighthouse only matches advisories, runs exploit checks and changes things on what is ticked here. Untick anything your team handles by hand.</p></div>
+              <p>LightHouse only matches advisories, runs exploit checks and changes things on what is ticked here. Untick anything your team handles by hand.</p></div>
             <section aria-labelledby="env-h"><div class="sec-head"><h2 id="env-h">Environments</h2><span class="small">Unticked: nothing running there is touched.</span></div>
               <div class="checks" id="scope-targets"></div></section>
             <section aria-labelledby="svc-h"><div class="sec-head"><h2 id="svc-h">Services</h2><button id="scan">Scan packages</button></div>
@@ -76,7 +76,7 @@
           <!-- models -->
           <div class="panel" data-panel="models" hidden>
             <div class="panel-head"><h2>AI models</h2>
-              <p>Lighthouse asks the first model in the list and moves down when one doesn't answer. Hosted models only see redacted prompts, and only when the Privacy rule under Autonomy allows it. API keys stay in <code>.env</code> on the server.</p></div>
+              <p>LightHouse asks the first model in the list and moves down when one doesn't answer. Hosted models only see redacted prompts, and only when the Privacy rule under Autonomy allows it. API keys stay in <code>.env</code> on the server.</p></div>
             <section aria-labelledby="order-h"><div class="sec-head"><h2 id="order-h">Answer order</h2><span id="llm-status"></span></div>
               <div class="provs" id="chain"></div>
               <div class="add-row" style="margin-top:12px"><select id="add-provider" aria-label="Model provider to add"></select><button id="add-provider-btn" class="admin">Add to the list</button></div>
@@ -91,7 +91,7 @@
 
           <!-- system -->
           <div class="panel" data-panel="system" hidden>
-            <div class="panel-head"><h2>System</h2><p>Live health of the server Lighthouse runs on. Read only; updates every 5 seconds.</p></div>
+            <div class="panel-head"><h2>System</h2><p>Live health of the server LightHouse runs on. Read only; updates every 5 seconds.</p></div>
             <div class="health" id="system"><section><div class="empty">Loading…</div></section></div>
           </div>
         </div>
@@ -197,7 +197,7 @@ function show(name) {
   $$("#subnav a[data-sec]").forEach((a) => { a.classList.toggle("on", a.dataset.sec === sec); a.toggleAttribute("aria-current", a.dataset.sec === sec); });
   $$("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== sec; });
   $(`#subnav a[data-sec="${sec}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  document.title = `${SECTIONS[sec]} · Settings · Lighthouse`;
+  document.title = `${SECTIONS[sec]} · Settings · LightHouse`;
   try { history.replaceState(null, "", `#${sec}`); } catch {}
   clearInterval(sysTimer);
   if (sec === "system") { loadSystem(); sysTimer = setInterval(loadSystem, 5000); }
@@ -304,7 +304,7 @@ function renderScope() {
   $("#pkg-list").innerHTML = sc.packages.map((p) => `<option value="${esc(p)}">`).join("");
   $("#scope-pkgs").innerHTML = ex.packages.map((p, i) => `<span class="chip c-grey">${esc(p)}<button class="admin" data-unpkg="${i}" aria-label="Stop leaving ${esc(p)} alone">×</button></span>`).join("")
     || `<span class="small">None. Every package is watched.</span>`;
-  $("#scope-src").textContent = S.scope.changed ? "Some things are excluded from what Lighthouse watches." : "Lighthouse watches everything it discovers.";
+  $("#scope-src").textContent = S.scope.changed ? "Some things are excluded from what LightHouse watches." : "LightHouse watches everything it discovers.";
   $("#reset-scope").hidden = !S.scope.changed;
   lock();
   if (!mayAdmin) $$("#scope-workloads input").forEach((i) => { i.disabled = true; });
@@ -335,7 +335,7 @@ $("#scan").addEventListener("click", async () => {
 });
 $("#reset-scope").addEventListener("click", async () => {
   if (!await confirmDialog("Watch every environment, service, ecosystem and package again?", "Watch everything")) return;
-  try { await api("/api/settings/scope", { method: "DELETE" }); toast("Lighthouse watches everything again."); await load({ keep: ["models", "autonomy"] }); }
+  try { await api("/api/settings/scope", { method: "DELETE" }); toast("LightHouse watches everything again."); await load({ keep: ["models", "autonomy"] }); }
   catch (e) { toast(e.message, true); }
 });
 
@@ -409,7 +409,7 @@ let lastSys = "";
 async function loadSystem() {
   let s;
   try { s = await api("/api/system"); $("#conn").hidden = true; }
-  catch (e) { $("#conn").textContent = `Can't reach the Lighthouse agent: ${e.message}`; $("#conn").hidden = false; return; }
+  catch (e) { $("#conn").textContent = `Can't reach the LightHouse agent: ${e.message}`; $("#conn").hidden = false; return; }
   const h = s.host, a = s.agent, o = s.ollama, mem = h.memory;
   const items = Object.entries(a.items).map(([k, n]) => `${n} ${k.replaceAll("_", " ")}`).join(", ") || "none yet";
   const html = `
@@ -421,7 +421,7 @@ async function loadSystem() {
       ${h.uptime ? `<dt>Up for</dt><dd>${dur(h.uptime)}</dd>` : ""}
       <dt>Tools</dt><dd><span>${Object.entries(s.tools).map(([t, ok]) => chip(ok ? "c-green" : "c-grey", t, ok ? "Installed" : "Not installed")).join(" ")}</span></dd>
     </dl></section>
-    <section><h2>Lighthouse</h2><dl class="facts">
+    <section><h2>LightHouse</h2><dl class="facts">
       <dt>Process</dt><dd>pid ${a.pid}, up for ${dur(a.uptime)}${a.demo ? `<span>${chip("c-amber", "Demo controls on")}</span>` : ""}</dd>
       <dt>Working now</dt><dd><span>${a.rollout_in_progress ? chip("c-blue", "Rollout in progress") : a.runs_in_progress ? chip("c-blue", `${plural(a.runs_in_progress, "run")} in progress`) : chip("c-grey", "Idle")}</span></dd>
       <dt>Workers</dt><dd><span>${a.workers.map((w) => chip("c-green", w.replace("pp-", ""))).join(" ") || chip("c-amber", "None running")}</span></dd>
