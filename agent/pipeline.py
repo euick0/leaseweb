@@ -12,11 +12,12 @@ import threading
 import traceback
 from typing import Optional
 
-from . import config, db, feed, fleet, inventory, matcher, mitigation, policy, probes, triage, vetter
+from . import config, db, feed, fleet, inventory, matcher, mitigation, policy, probes, settings, triage, vetter
 from .builder import BuildError
 from .drivers.base import DriverError
 from .schemas import Component, Match, TriageResult, VetResult, Workload
 
+VERDICTS = ["clean", "unreviewed", "suspicious", "malicious"]      # best to worst
 _action_lock = threading.Lock()        # one rollout at a time: builds, canaries and probes share resources
 
 
@@ -79,7 +80,7 @@ def vet_once(adv: dict, comp: Component, new: str, log: Log) -> tuple[VetResult,
     """Vet comp -> new once per artifact; later workloads reuse the verdict."""
     key = vet_key(comp.ecosystem, comp.name, comp.version, new)
     cached = db.vet_cache_get(key)
-    if cached:
+    if cached and cached["verdict"] != "unreviewed":      # an incomplete review is never reused: vet again
         result = VetResult.model_validate(cached).model_copy(update={"cached": True})
         log("vet", "ok" if result.verdict == "clean" else "warn",
             f"{comp.name} {comp.version} → {new}: {result.verdict.upper()} (cached verdict reused)",
@@ -89,7 +90,7 @@ def vet_once(adv: dict, comp: Component, new: str, log: Log) -> tuple[VetResult,
     result = vetter.vet(adv, fleet.ECOSYSTEMS[comp.ecosystem], comp.name, comp.version, new,
                         lambda status, title, detail, data: log("vet", status, title, detail, data))
     db.vet_cache_put(key, result)
-    log("vet", {"clean": "ok", "suspicious": "warn", "malicious": "fail"}[result.verdict],
+    log("vet", {"clean": "ok", "unreviewed": "warn", "suspicious": "warn", "malicious": "fail"}[result.verdict],
         f"{comp.name} {new}: {result.verdict.upper()}", "; ".join(result.reasons), result.model_dump())
     return result, key
 
@@ -195,27 +196,35 @@ def _run(adv: dict, run_id: int, log: Log) -> None:
     log("rank", "info", "Priority (most critical first): " + " > ".join(
         f"{r[1].name}@{r[1].target} ({r[3].severity_for_this_workload})" for r in rows))
 
-    # 6. vet, once per package version, for every workload that may need the fix
+    # the policy for each workload: the fleet's, tightened by its repository
+    pols: dict[int, dict] = {}
+    for item_id, wl, m, t in rows:
+        src, notes = fl.source(wl), []
+        pols[item_id] = policy.load((src.config() if src else {}).get("policy"), notes)
+        if notes:
+            Log(run_id, item_id)("policy", "warn", f"{wl.name}: repository policy overrides not applied",
+                                 "\n".join(notes), {"ignored": notes})
+
+    # 6. vet, once per package version, for every workload whose fix may be deployed. The model
+    # calling a workload unaffected or unreachable does not skip this unless policy ignores it.
     vets: dict[int, Optional[VetResult]] = {}
     for item_id, wl, m, t in rows:
-        if not (m.patch_available and t.affected and t.recommended_action in ("patch", "investigate")):
+        ignored = policy.claims_safe(t) and policy.unreachable_decision(pols[item_id], wl) == "ignore"
+        if not m.patch_available or t.recommended_action == "mitigate" or ignored:
             vets[item_id] = None
             continue
         worst, keys = None, []
         for comp in _bump_set(fl, adv, wl, m.component, m.fixed_version):
             result, key = vet_once(adv, comp, m.fixed_version, Log(run_id, item_id))
             keys.append(key)
-            if worst is None or ["clean", "suspicious", "malicious"].index(result.verdict) > \
-                    ["clean", "suspicious", "malicious"].index(worst.verdict):
+            if worst is None or VERDICTS.index(result.verdict) > VERDICTS.index(worst.verdict):
                 worst = result
         vets[item_id] = worst
         db.update_item(item_id, vet_key=",".join(keys))
 
     # 7. policy and 8. act, in rank order
     for item_id, wl, m, t in rows:
-        src = fl.source(wl)
-        pol = policy.load((src.config() if src else {}).get("policy"))
-        d = policy.decide(pol, wl, t, m.patch_available, vets[item_id], _mitigation_ok(wl, t))
+        d = policy.decide(pols[item_id], wl, t, m.patch_available, vets[item_id], _mitigation_ok(wl, t))
         ilog = Log(run_id, item_id)
         db.update_item(item_id, decision=d.__dict__)
         ilog("policy", {"auto": "ok", "needs_approval": "pending", "block": "fail", "queue": "info",
@@ -244,22 +253,27 @@ def finish_run(run_id: int) -> None:
     db.update_run(run_id, status, ", ".join(f"{n} {s.replace('_', ' ')}" for s, n in counts.items()))
 
 
-def approve(item_id: int) -> None:
+WAITING = ("awaiting_approval", "queued")
+
+
+def approve(item_id: int, actor: str = "operator") -> None:
     item = db.get_item(item_id)
-    if not item or item["status"] not in ("awaiting_approval", "queued"):
+    if not item or not db.claim_item(item_id, WAITING, "running", decided_by=actor):
         raise ValueError("item is not waiting for a decision")
-    db.update_item(item_id, status="running")
     db.update_run(item["run_id"], "running")
-    Log(item["run_id"], item_id)("policy", "ok", f"Approved by operator: {item['decision']['action']}")
+    Log(item["run_id"], item_id)("policy", "ok", f"Approved by {actor}: {item['decision']['action']}",
+                                 None, {"actor": actor})
+    db.audit(actor, "approve", item["workload_id"], f"run {item['run_id']} item {item_id}: {item['decision']['action']}")
     threading.Thread(target=lambda: (execute(item_id), finish_run(item["run_id"])), daemon=True).start()
 
 
-def reject(item_id: int) -> None:
+def reject(item_id: int, actor: str = "operator") -> None:
     item = db.get_item(item_id)
-    if not item or item["status"] not in ("awaiting_approval", "queued"):
+    if not item or not db.claim_item(item_id, WAITING, "blocked", decided_by=actor,
+                                     outcome=f"rejected by {actor}"):
         raise ValueError("item is not waiting for a decision")
-    db.update_item(item_id, status="blocked", outcome="rejected by operator")
-    Log(item["run_id"], item_id)("policy", "warn", "Rejected by operator")
+    Log(item["run_id"], item_id)("policy", "warn", f"Rejected by {actor}", None, {"actor": actor})
+    db.audit(actor, "reject", item["workload_id"], f"run {item['run_id']} item {item_id}")
     finish_run(item["run_id"])
 
 
@@ -347,6 +361,19 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
     if canary and canary["result"] == "VULNERABLE":
         return fail("canary", "exploit still works on the canary")
 
+    title = f"Bump {comp.coordinate} {comp.version} -> {version} ({feed.title(adv)})"
+    link = f"{settings.public_url()}/#run={item['run_id']}&item={item['id']}"
+    if not getattr(src, "deploy", True):
+        # the company's CI/CD deploys: propose the verified change and stop here
+        target.remove_canary(wl)
+        proof = {"level": "exploit probe on canary", "before": before, "after": canary} if before and canary else None
+        url = src.accept_change(branch, title, _review_body(adv, wl, comp, version, bump, proof, False, link))
+        log("change", "ok", f"Change proposed: {url}" if url else "Change merged locally",
+            "Verified on a canary; production is left to the company's CI/CD", {"url": url})
+        db.update_item(item["id"], status="proposed", proof=proof,
+                       outcome=f"verified on canary, {'pull request ' + url if url else 'merged'}"[:300])
+        return
+
     try:
         previous = target.promote(wl, image)
     except DriverError as exc:
@@ -361,7 +388,6 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
         log("rollback", "fail", "Still vulnerable after promote: rolled back", after["detail"])
         db.update_item(item["id"], status="rolled_back", outcome="still vulnerable after promote")
         return
-    src.accept_change(branch)
 
     if after:
         proof = {"level": "exploit probe", "before": before, "after": after}
@@ -370,9 +396,32 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
         now = next((c.version for c in comps if c.name == comp.name), "unknown")
         ok, detail = probes.health(target, wl, probes.default_via(wl), 10)
         proof = {"level": "re-scan + health", "rescan": f"{comp.name} {now} ({how})", "health": ok}
+    url = src.accept_change(branch, title, _review_body(adv, wl, comp, version, bump, proof, True, link))
+    if url:
+        log("change", "ok", f"Pull request opened: {url}", "Production already runs the verified build", {"url": url})
+        proof["review"] = url
     db.update_item(item["id"], status="done", proof=proof,
                    outcome=f"patched to {comp.name} {version}" + (f": {before['result']} → {after['result']}"
                                                                   if before and after else ""))
+
+
+def _review_body(adv: dict, wl: Workload, comp: Component, version: str, bump: list[Component],
+                 proof: Optional[dict], deployed: bool, link: str) -> str:
+    """The pull request description: what, why, and the evidence."""
+    lines = [f"**{feed.title(adv)}**: {adv.get('summary', '')}", "",
+             f"- Service: `{wl.name}` in `{wl.target}` ({wl.provider})",
+             f"- Package: `{comp.coordinate}` {comp.version} → **{version}**"
+             + (f" (with {', '.join(c.name for c in bump[1:])})" if len(bump) > 1 else ""),
+             f"- Update vetted by PatchPilot before the build (checksums, source match, diff review)"]
+    if proof and proof.get("before") and proof.get("after"):
+        lines.append(f"- Exploit probe: **{proof['before']['result']} → {proof['after']['result']}** "
+                     f"({proof['after'].get('via', '')})")
+    elif proof and proof.get("rescan"):
+        lines.append(f"- Re-scan after deploy: {proof['rescan']}")
+    lines += ["", "Production already runs this build; merging records it on the main branch." if deployed
+              else "Verified on a canary only: merging lets your CI/CD roll it out.",
+              "", f"Decision log: {link}"]
+    return "\n".join(lines)
 
 
 def _mitigate(item: dict, adv: dict, log: Log) -> None:
@@ -382,23 +431,42 @@ def _mitigate(item: dict, adv: dict, log: Log) -> None:
     target = fl.target(wl.target)
     rule = mitigation.render(adv["id"], t.mitigation_pattern, t.mitigation_fields)
 
+    key = mitigation.key(adv["id"])
     before = _probe(fl, adv, wl, probes.default_via(wl), log, "Before")
+    covered = bool(before and before["result"] == "BLOCKED")
+    if covered:
+        log("mitigate", "info", "The exploit is already blocked at the gateway by an earlier virtual patch",
+            "The rule for this advisory is added as well, so it stays covered if the other one is removed.")
     try:
-        target.apply_mitigation(wl, mitigation.key(adv["id"]), rule)
+        target.apply_mitigation(wl, key, rule)
     except DriverError as exc:
         log("mitigate", "fail", "Virtual patch rejected by the gateway; previous config kept", str(exc))
         db.update_item(item["id"], status="failed", outcome="virtual patch rejected by nginx")
         return
     log("mitigate", "ok", f"Virtual patch active on gateway {wl.gateway}", rule, {"rule": rule})
+
+    def undo(why: str, proof: Optional[dict]) -> None:
+        """A rule that is not proven, or that hurts the service, does not stay."""
+        target.remove_mitigation(wl, key)
+        ok, detail = probes.health(target, wl, probes.default_via(wl), 10)
+        log("rollback", "ok" if ok else "fail",
+            f"Virtual patch removed: {why}" if ok else f"Virtual patch removed ({why}); health check still failing",
+            detail)
+        db.update_item(item["id"], status="rolled_back", proof=proof, outcome=f"virtual patch removed: {why}"[:300])
+
     after = _probe(fl, adv, wl, probes.default_via(wl), log, "After")
-    if after and after["result"] == "VULNERABLE":
-        db.update_item(item["id"], status="failed", proof={"level": "exploit probe", "before": before, "after": after},
-                       outcome="virtual patch applied but the probe still gets through")
-        return
+    proof = {"level": "exploit probe", "before": before, "after": after} if after else None
+    if after and after["result"] != "BLOCKED":
+        return undo(f"the probe is not blocked by it ({after['result']})", proof)
     ok, detail = probes.health(target, wl, probes.default_via(wl), 10)
-    log("mitigate", "ok" if ok else "warn", "Service still healthy behind the rule" if ok else "Health check failing",
-        detail)
-    db.update_item(item["id"], status="done",
-                   proof={"level": "exploit probe", "before": before, "after": after} if after else None,
+    if not ok:
+        log("mitigate", "fail", "Health check failing behind the rule", detail)
+        return undo(f"it broke the health check {wl.health_path}", proof)
+    log("mitigate", "ok", "Service still healthy behind the rule", detail)
+    if covered:
+        db.update_item(item["id"], status="done", proof={"level": "already blocked before this action"},
+                       outcome="already blocked by an earlier virtual patch; rule for this advisory added")
+        return
+    db.update_item(item["id"], status="done", proof=proof,
                    outcome="virtual patch on the gateway" + (f": {before['result']} → {after['result']}"
                                                             if before and after else ""))

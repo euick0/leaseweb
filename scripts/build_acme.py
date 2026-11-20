@@ -39,7 +39,7 @@ def record_hash(data: bytes) -> str:
 def build_wheel(src: Path, project: dict, dist: str, out: Path) -> None:
     files: dict[str, bytes] = {}
     for f in sorted((src / "src").rglob("*.py")):
-        files[str(f.relative_to(src / "src"))] = f.read_bytes()
+        files[f.relative_to(src / "src").as_posix()] = f.read_bytes()
     info = f"{dist}-{project['version']}.dist-info"
     files[f"{info}/METADATA"] = metadata(project).encode()
     files[f"{info}/WHEEL"] = b"Wheel-Version: 1.0\nGenerator: patchpilot-build-acme\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
@@ -60,7 +60,7 @@ def build_sdist(src: Path, project: dict, dist: str, out: Path) -> None:
     files = {f"{root}/PKG-INFO": metadata(project).encode(),
              f"{root}/pyproject.toml": (src / "pyproject.toml").read_bytes()}
     for f in sorted((src / "src").rglob("*.py")):
-        files[f"{root}/src/{f.relative_to(src / 'src')}"] = f.read_bytes()
+        files[f"{root}/src/{f.relative_to(src / 'src').as_posix()}"] = f.read_bytes()
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w", format=tarfile.PAX_FORMAT) as tf:
         for name, data in files.items():

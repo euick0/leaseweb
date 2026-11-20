@@ -3,3 +3,4 @@ __pycache__/
 state/
 feed/*.json
 deploy/compose/*/runtime/
+.env

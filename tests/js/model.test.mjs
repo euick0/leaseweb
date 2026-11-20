@@ -57,6 +57,14 @@ test("buildBoard puts a workload whose environment is unknown in an extra bay", 
   assert.equal(bays[2].strips[0].workload.name, "legacy");
 });
 
+test("verdictFor shows a proposed fix as waiting on review, counted as waiting", () => {
+  const it = item(9, fleet.workloads[0], { status: "proposed" });
+  assert.deepEqual([verdictFor(it).kind, verdictFor(it).label], ["proposed", "Fix proposed"]);
+  assert.equal(pillClass("proposed"), "wait");
+  assert.equal(ticketSummary({ items: [{ status: "proposed" }] }), "1 fix proposed");
+  assert.equal(runStats(fleet, { run: { started: 0, finished: 1 }, items: [it] }).waiting, 1);
+});
+
 test("verdictFor only crosses out Vulnerable when the probe saw it vulnerable before", () => {
   const v = verdictFor({ status: "done", proof: { before: { result: "SAFE" }, after: { result: "BLOCKED" } } });
   assert.equal(v.kind, "shielded");

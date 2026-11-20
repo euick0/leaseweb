@@ -49,6 +49,7 @@ const STATUS_VERDICTS = {
   failed: ["failed", "Failed"],
   rolled_back: ["rolledback", "Rolled back"],
   ignored: ["ignored", "Ignored"],
+  proposed: ["proposed", "Fix proposed"],
 };
 
 /** The verdict for one workload in a run. */
@@ -87,6 +88,7 @@ export function actionLabel(item) {
 const SUMMARY_WORDS = [
   ["done", "safe"], ["awaiting_approval", "needs you"], ["escalated", "needs a human"], ["queued", "queued"],
   ["blocked", "refused"], ["failed", "failed"], ["rolled_back", "rolled back"], ["ignored", "ignored"],
+  ["proposed", "fix proposed"],
 ];
 
 /** "1 safe, 1 queued" for an advisory in the list. */
@@ -114,7 +116,7 @@ export function language(item) {
   return LANGUAGES[item?.component?.ecosystem] ?? null;
 }
 
-const PILLS = { safe: "safe", shielded: "safe", patched: "safe", vuln: "vuln", refused: "vuln", failed: "vuln", wait: "wait", human: "wait", rolledback: "wait" };
+const PILLS = { safe: "safe", shielded: "safe", patched: "safe", vuln: "vuln", refused: "vuln", failed: "vuln", wait: "wait", human: "wait", rolledback: "wait", proposed: "wait" };
 
 /** Colour group of a status pill. */
 export const pillClass = (kind) => PILLS[kind] ?? "queued";
@@ -136,7 +138,7 @@ export function runStats(fleet, detail) {
     affected: items.length,
     total,
     safe: kinds.filter((k) => ["safe", "shielded", "patched"].includes(k)).length,
-    waiting: kinds.filter((k) => ["queued", "wait", "human"].includes(k)).length,
+    waiting: kinds.filter((k) => ["queued", "wait", "human", "proposed"].includes(k)).length,
     seconds,
   };
 }

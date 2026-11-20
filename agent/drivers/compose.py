@@ -233,6 +233,13 @@ class ComposeTarget:
             path.unlink()
             raise
 
+    def remove_mitigation(self, wl: Workload, key: str) -> None:
+        gw = self._gateway(wl)
+        path = self._mitigation_dir(gw) / f"{key}.conf"
+        if path.exists():
+            path.unlink()
+            self._reload(gw)
+
     def clear_mitigations(self, wl: Workload) -> None:
         if not wl.gateway:
             return

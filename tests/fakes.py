@@ -17,12 +17,17 @@ import sys
 import time
 from pathlib import Path
 from typing import Optional
+from urllib.parse import unquote
 
 from agent.drivers.base import DriverError, HttpResult
 from agent.drivers.http import get
 from agent.schemas import Workload
 
 RULE = re.compile(r'^if \((\$\w+) ~\* "(.*)"\) \{ return 403; \}$')
+
+
+def _venv_python(root: Path) -> Path:
+    return root / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
 
 def _free_port() -> int:
@@ -49,7 +54,7 @@ class LocalBuilder:
         shutil.copytree(path, dest, ignore=shutil.ignore_patterns(".git"))
         if (dest / "requirements.txt").exists():
             subprocess.run(["uv", "venv", "-q", "--python", sys.executable, str(dest / ".venv")], check=True)
-            subprocess.run(["uv", "pip", "install", "-q", "--python", str(dest / ".venv/bin/python"), "--no-index",
+            subprocess.run(["uv", "pip", "install", "-q", "--python", str(_venv_python(dest)), "--no-index",
                             "--find-links", str(dest / "wheels"), "-r", str(dest / "requirements.txt")], check=True)
             # same layout as the container: /app/keys and /srv/pp-probe four levels apart
             root = dest / "root"
@@ -67,7 +72,9 @@ class Instance:
         if (path / "app.py").exists():
             self.port = _free_port()
             env = {"PORT": str(self.port), "ACME_KEY_DIR": str(path / "root/a/b/c/keys"), "PATH": "/usr/bin:/bin"}
-            self.proc = subprocess.Popen([str(path / ".venv/bin/python"), "app.py"], cwd=path, env=env,
+            if sys.platform == "win32":
+                env["SYSTEMROOT"] = __import__("os").environ.get("SYSTEMROOT", r"C:\Windows")
+            self.proc = subprocess.Popen([str(_venv_python(path)), "app.py"], cwd=path, env=env,
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             deadline = time.time() + 10
             while time.time() < deadline and get(f"http://127.0.0.1:{self.port}/", timeout=1).status == 0:
@@ -108,7 +115,7 @@ class LocalTarget:
     def _blocked(self, app: str, path: str, headers: dict) -> bool:
         query = path.split("?", 1)[1] if "?" in path else ""
         for var, rx in (r for rules in self.rules[app].values() for r in rules):
-            value = query if var == "$args" else next(
+            value = query if var == "$args" else path if var == "$request_uri" else next(
                 (v for k, v in headers.items() if "$http_" + k.lower().replace("-", "_") == var), "")
             if rx.search(value):
                 return True
@@ -124,7 +131,7 @@ class LocalTarget:
             return HttpResult(0, "no canary")
         if inst.port:
             return get(f"http://127.0.0.1:{inst.port}{path}", headers, timeout)
-        payload = headers.get("X-Api-Version", "")
+        payload = headers.get("X-Api-Version", "") + " " + unquote(path)     # the app logs both
         if "${jndi:" in payload and inst.log4shell_vulnerable:
             self.hits.append({"ts": time.time(), "peer": wl.name, "data": payload})
         return HttpResult(200, "ok\n")
@@ -166,6 +173,9 @@ class LocalTarget:
             nginx_unquoted = m.group(2).replace('\\"', '"').replace("\\\\", "\\")
             parsed.append((m.group(1), re.compile(nginx_unquoted, re.I)))
         self.rules[wl.name][key] = parsed
+
+    def remove_mitigation(self, wl: Workload, key: str) -> None:
+        self.rules[wl.name].pop(key, None)
 
     def clear_mitigations(self, wl: Workload) -> None:
         self.rules[wl.name] = {}

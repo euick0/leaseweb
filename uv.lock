@@ -1098,6 +1098,7 @@ anthropic = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx2" },
     { name = "pytest" },
 ]
 
@@ -1115,7 +1116,10 @@ requires-dist = [
 provides-extras = ["anthropic"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
+dev = [
+    { name = "httpx2", specifier = ">=2.16.2" },
+    { name = "pytest", specifier = ">=8" },
+]
 
 [[package]]
 name = "pluggy"

@@ -19,6 +19,7 @@ const state = {
   inFlight: new Set(),   // "approve:<id>" / "reject:<id>" requests not answered yet
   menuOpen: false,
   errorUntil: 0,
+  me: null,              // { user, may_act, auth } from /api/me
   data: null,            // last { fleet, runs, scenarios, detail }
 };
 const rendered = {};
@@ -26,11 +27,32 @@ let busy = false, again = false;
 
 // ------------------------------------------------------------------ helpers
 
-async function api(path, opts) {
-  const res = await fetch(path, opts);
+// The API token arrives once in the URL fragment (#token=...) or by prompt, and stays in this browser.
+// #run=3&item=7 (from notifications) opens that run and workload.
+const store = {
+  get: () => { try { return localStorage.getItem("pp-token"); } catch { return null; } },
+  set: (t) => { try { localStorage.setItem("pp-token", t); } catch { /* private window */ } },
+};
+const hash = new URLSearchParams(location.hash.slice(1));
+let token = hash.get("token") || store.get();
+if (hash.get("token")) { store.set(token); history.replaceState(null, "", location.pathname); }
+if (hash.get("run")) { state.selectedRun = Number(hash.get("run")); state.pinned = true; }
+if (hash.get("item")) state.openKey = `item:${Number(hash.get("item"))}`;
+let asking = false;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token || ""}` } });
+  if (res.status === 401 && !asking) {
+    asking = true;
+    const given = prompt("PatchPilot API token (printed when the agent starts, or your PP_API_TOKENS entry):");
+    asking = false;
+    if (given) { token = given.trim(); store.set(token); return api(path, opts); }
+  }
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `${res.status} ${res.statusText}`);
   return res.json();
 }
+
+const mayAct = () => state.me?.may_act !== false;
 
 function showError(message, holdMs = 0) {
   const bar = $("#errors");
@@ -42,6 +64,7 @@ function showError(message, holdMs = 0) {
 const clock = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour12: false });
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const icon = (id, cls = "") => `<svg class="l ${cls}"><use href="#i-${id}"/></svg>`;
+const mark = (tone) => `<i class="mk ${tone}" aria-hidden="true"></i>`;
 const pill = (label, cls) => `<span class="st ${cls}">${esc(label)}</span>`;
 const imageTag = (image) => String(image || "").split("/").pop();
 
@@ -76,14 +99,31 @@ const busyFor = (kind, id) => state.inFlight.has(`${kind}:${id}`);
 // ------------------------------------------------------------------ chrome
 
 function renderChrome({ fleet, runs, scenarios }) {
-  const providers = String(fleet.llm.providers || "model");
-  $("#model-name").textContent = providers;
-  $("#model-mode").textContent = fleet.llm.mode === "cache" ? "Our hardware, cached answers" : "Our hardware, live answers";
+  const llm = fleet.llm;
+  $("#model-name").textContent = String(llm.providers || "model");
+  const egress = llm.sovereign
+    ? `Sovereign, 0 prompts left our infrastructure${llm.mode === "cache" ? ", cached answers" : ""}`
+    : `Hosted API allowed, ${llm.hosted_calls ?? 0} prompt(s) sent out`;
+  $("#model-mode").textContent = egress;
+  $("#model-mode").title = llm.sovereign
+    ? `${llm.local_calls ?? 0} model call(s) since start, all on our own infrastructure.`
+    : `Hosted providers: ${(llm.hosted_providers || []).join(", ") || "none now"}. Prompts are redacted (${llm.redactions ?? 0} so far).`;
+  $("#model-mode").classList.toggle("warn", !llm.sovereign);
+  const me = state.me;
+  if (me) {
+    $("#me-name").textContent = me.auth === "none" ? "No login" : me.user;
+    $("#me-role").textContent = me.auth === "none" ? "demo mode" : me.may_act ? "may approve" : "view only";
+    $("#me-initials").textContent = (me.auth === "none" ? "?" : String(me.user)).slice(0, 2).toUpperCase();
+  }
   const count = $("#nav-count");
   count.hidden = !runs.length;
   count.textContent = runs.length;
-  setHtml("#scenarios", scenarios.map((s) => `<button type="button" role="menuitem" class="${s.triggered ? "ran" : ""}" data-scenario="${esc(s.name)}">
-      <b>${esc(s.name)}</b><span>${esc(s.title || s.summary || "")}</span></button>`).join(""));
+  $("#probe").hidden = !mayAct();
+  $("#simulate").hidden = !mayAct();
+  const demo = scenarios.length ? `<p class="menu-h">Demo scenarios</p>` + scenarios.map((s) => `<button type="button" role="menuitem" class="${s.triggered ? "ran" : ""}" data-scenario="${esc(s.name)}">
+      <b>${esc(s.name)}</b><span>${esc(s.title || s.summary || "")}</span></button>`).join("") : "";
+  setHtml("#scenarios", `<form id="add-advisory" class="menu-form"><label for="advisory-id">Add a real advisory from OSV</label>
+      <div><input id="advisory-id" placeholder="CVE-… or GHSA-…" autocomplete="off"><button type="submit" class="btn-brand">Add</button></div></form>${demo}`);
   $("#scenarios").hidden = !state.menuOpen;
   $("#simulate").setAttribute("aria-expanded", String(state.menuOpen));
 }
@@ -139,21 +179,23 @@ function decisionCard(item, events, envLabel) {
   const checks = [];
   if (vet) {
     checks.push(vet.verdict === "clean"
-      ? `<li>${icon("ok", "good")}<span>Fix <span class="mono">${esc(vet.to_version)}</span> passed vetting</span></li>`
-      : `<li>${icon("x", "bad")}<span>Fix <span class="mono">${esc(vet.to_version)}</span> judged ${esc(vet.verdict)}${firstFlag(vet)}</span></li>`);
+      ? `<li>${mark("good")}<span>Fix <span class="mono">${esc(vet.to_version)}</span> passed vetting</span></li>`
+      : `<li>${mark("bad")}<span>Fix <span class="mono">${esc(vet.to_version)}</span> judged ${esc(vet.verdict)}${firstFlag(vet)}</span></li>`);
   } else if (!item.fixed_version) {
-    checks.push(`<li>${icon("x", "bad")}<span>No fix has been released for ${esc(item.component.name)}</span></li>`);
+    checks.push(`<li>${mark("bad")}<span>No fix has been released for ${esc(item.component.name)}</span></li>`);
   }
   if (item.triage) {
-    checks.push(`<li>${icon("alert", "info")}<span>Model triage: ${esc(item.triage.severity_for_this_workload)}, ${item.triage.reachable ? "reachable" : "not reachable"}</span></li>`);
+    checks.push(`<li>${mark("info")}<span>Model triage: ${esc(item.triage.severity_for_this_workload)}, ${item.triage.reachable ? "reachable" : "not reachable"}</span></li>`);
   }
-  const buttons = item.status === "awaiting_approval"
+  const buttons = item.status === "awaiting_approval" && !mayAct()
+    ? `<span class="decide-note">You can view this run but not approve. Ask someone with approval rights.</span>`
+    : item.status === "awaiting_approval"
     ? `<button type="button" class="btn-brand" data-approve="${item.id}" ${busyFor("approve", item.id) ? "disabled" : ""}>${esc(actionLabel(item))}</button>
        <button type="button" class="btn-line" data-reject="${item.id}" ${busyFor("reject", item.id) ? "disabled" : ""}>Reject</button>
        <span class="decide-note">Rejecting leaves ${esc(w.name)} exposed. Both choices are logged.</span>`
     : `<span class="decide-note">${esc(item.outcome || "PatchPilot could not act on its own.")}</span>`;
   return `<div class="decide">
-    <div class="decide-h"><span class="decide-ic">${icon("shield-alert")}</span><div>
+    <div class="decide-h"><div>
       <p class="decide-k">Needs your decision</p><p class="decide-t">${esc(title)}</p>
       ${d.reason ? `<p class="decide-d">${esc(d.reason)}</p>` : ""}</div></div>
     <div class="decide-body">
@@ -203,9 +245,8 @@ function proofBoxes(item) {
   const box = (when, res) => {
     if (!res) return `<div><p class="t">${when}</p><p class="v mid">Not probed</p></div>`;
     const cls = res.result === "VULNERABLE" ? "bad" : res.result === "ERROR" ? "mid" : "good";
-    const ic = res.result === "VULNERABLE" ? "x" : res.result === "ERROR" ? "alert" : "ok";
     const word = { VULNERABLE: "Vulnerable", SAFE: "Safe", BLOCKED: "Blocked", ERROR: "Probe error" }[res.result] ?? res.result;
-    return `<div><p class="t">${when}, ${esc(res.via)} path</p><p class="v ${cls}">${icon(ic)}${esc(word)}</p><p class="n">${esc(res.detail || "")}</p></div>`;
+    return `<div><p class="t">${when}, ${esc(res.via)} path</p><p class="v ${cls}">${esc(word)}</p><p class="n">${esc(res.detail || "")}</p></div>`;
   };
   if (p?.before || p?.after) return `<div class="ba">${box("Before", p.before)}${box("After", p.after)}</div>`;
   if (p?.level === "re-scan + health") {
@@ -220,10 +261,10 @@ function vetHtml(item, events) {
   const vet = vetEvent(item, events)?.data;
   if (!vet) return `<p class="dt">Fix checked before install</p><p class="dp">${item.fixed_version ? "Not checked yet." : "No fix has been released, so there is nothing to check."}</p>`;
   const flags = (vet.flags || []).filter((f) => f.severity === "hard" || f.severity === "soft");
-  const lines = flags.map((f) => `<li>${icon("x", "bad")}<span>${esc(f.file ? `${f.file}: ` : "")}${esc(f.message)}</span></li>`);
-  if (!flags.length) lines.push(`<li>${icon("ok", "good")}<span>No hard or soft flags in the diff</span></li>`);
+  const lines = flags.map((f) => `<li>${mark("bad")}<span>${esc(f.file ? `${f.file}: ` : "")}${esc(f.message)}</span></li>`);
+  if (!flags.length) lines.push(`<li>${mark("good")}<span>No hard or soft flags in the diff</span></li>`);
   for (const r of (vet.reviews || []).filter((r) => r.review && r.review.suspicious)) {
-    lines.push(`<li>${icon("x", "bad")}<span>Model review of ${esc(r.file)}: ${esc(r.review.explanation)}</span></li>`);
+    lines.push(`<li>${mark("bad")}<span>Model review of ${esc(r.file)}: ${esc(r.review.explanation)}</span></li>`);
   }
   const evidence = flags.filter((f) => (f.lines || []).length).slice(0, 2)
     .map((f) => `<pre class="evidence">${esc(f.file || "")}\n${f.lines.map((l) => `+ ${esc(l)}`).join("\n")}</pre>`).join("");
@@ -234,13 +275,16 @@ function vetHtml(item, events) {
 
 function policyHtml(item) {
   const d = item.decision;
-  const label = item.status === "queued" ? actionLabel(item) : null;
+  const label = item.status === "queued" && mayAct() ? actionLabel(item) : null;
   const buttons = label ? `<div class="actions"><button type="button" class="btn-brand" data-approve="${item.id}" ${busyFor("approve", item.id) ? "disabled" : ""}>${esc(label)}</button>
     <button type="button" class="btn-line" data-reject="${item.id}" ${busyFor("reject", item.id) ? "disabled" : ""}>Reject</button></div>` : "";
   if (!d) return buttons;
   const how = { auto: "allowed automatically", needs_approval: "needs a person to approve", block: "blocked", queue: "queued" }[d.decision] || d.decision;
   const what = d.action === "mitigate" ? "Shield at the gateway" : d.action === "patch" ? "Patch the dependency" : d.action;
-  return `<p class="dt">Policy</p><p class="dp"><b>${esc(what)}</b>, ${esc(how)}. ${esc(d.reason)}</p>${buttons}`;
+  const by = item.decided_by ? ` Decided by ${esc(item.decided_by)}.` : "";
+  const review = item.proof?.review
+    ? `<p class="dt">Review</p><p class="dp"><a class="link" href="${esc(item.proof.review)}" target="_blank" rel="noopener">${esc(item.proof.review)}</a></p>` : "";
+  return `<p class="dt">Policy</p><p class="dp"><b>${esc(what)}</b>, ${esc(how)}. ${esc(d.reason)}${by}</p>${buttons}${review}`;
 }
 
 function rawEvents(events) {
@@ -259,7 +303,7 @@ function detailHtml(strip) {
   const fresh = state.justOpened ? " fresh" : "";
   const it = strip.item, w = strip.workload;
   if (!it) {
-    const probes = (w.probes || []).map((p) => `<li>${icon(p.result === "VULNERABLE" ? "x" : "ok", p.result === "VULNERABLE" ? "bad" : "good")}
+    const probes = (w.probes || []).map((p) => `<li>${mark(p.result === "VULNERABLE" ? "bad" : "good")}
       <span><b>${esc(p.probe)}</b>: ${esc(p.result)} on the ${esc(p.via)} path, ${clock(p.ts)}</span></li>`).join("");
     return `<div class="detail${fresh}">
       <p class="dt">Last probes</p>${probes ? `<ul class="checks" style="margin-top:0">${probes}</ul>` : `<p class="dp">Not probed yet. Use Probe fleet.</p>`}
@@ -271,7 +315,7 @@ function detailHtml(strip) {
   const t = it.triage;
   const source = { live: "live answer", cache: "cached answer", fallback: "fallback answer", seed: "seeded answer" }[it.triage_source] || it.triage_source || "";
   const why = t ? `<p class="dt">${it.rank === 1 ? "Why it went first" : "Why this verdict"}</p><p class="dp">${esc(t.explanation)}</p>
-    <p class="dby">${icon("cpu")}${esc(String(state.data.fleet.llm.providers || "model"))} · ${esc(source)} · ${esc(t.severity_for_this_workload)}, ${t.reachable ? "reachable" : "not reachable"}</p>` : "";
+    <p class="dby">Triage by ${esc(String(state.data.fleet.llm.providers || "model"))} · ${esc(source)} · ${esc(t.severity_for_this_workload)}, ${t.reachable ? "reachable" : "not reachable"}</p>` : "";
   return `<div class="detail${fresh}">${proofBoxes(it)}${why}${vetHtml(it, events)}${policyHtml(it)}${rawEvents(mine)}</div>`;
 }
 
@@ -280,7 +324,7 @@ function workloadsCard(fleet, detail) {
   const keys = new Set(bays.flatMap((b) => b.strips.map(stripKey)));
   if (state.openKey && !keys.has(state.openKey)) state.openKey = null;
   const hasRun = Boolean(detail);
-  const body = bays.map((bay) => `<div class="bay-h">${icon("server")}${esc(bay.env.label || bay.env.name)}
+  const body = bays.map((bay) => `<div class="bay-h">${esc(bay.env.label || bay.env.name)}
       ${bay.env.provider ? `<span>· ${esc(bay.env.provider)}</span>` : ""}${bay.error ? `<span class="unreach">· unreachable: ${esc(bay.error)}</span>` : ""}</div>
     ${bay.strips.map((s) => rowHtml(s, bay, hasRun)).join("") || `<div class="empty">No workloads here</div>`}`).join("");
   return `<section class="card" id="workloads"><div class="card-h"><h2>Workloads</h2>
@@ -290,19 +334,14 @@ function workloadsCard(fleet, detail) {
 
 // ------------------------------------------------------------------ feed and advisories
 
-const FEED_ICONS = {
-  match: "alert", triage: "cpu", vet: "shield-check", policy: "scroll", change: "commit", build: "flask",
-  canary: "flask", promote: "rocket", rollback: "refresh", mitigate: "shield-check", probe: "radar",
-  discover: "server", inventory: "server", watch: "alert", rank: "scroll", error: "x",
-};
 const FEED_TONE = { ok: "ok", fail: "bad", warn: "warn", ai: "ai", info: "mid", pending: "mid" };
 
 function feedCard(detail) {
   const events = detail ? [...detail.events].sort((a, b) => b.ts - a.ts || b.id - a.id).slice(0, FEED_LIMIT) : [];
   const names = new Map((detail?.items ?? []).map((i) => [i.id, i.workload.name]));
-  const items = events.map((e) => `<div class="item">${icon(FEED_ICONS[e.step] || "scroll", FEED_TONE[e.status] || "mid")}
+  const items = events.map((e) => `<div class="item">${mark(FEED_TONE[e.status] || "mid")}
       <div><p class="a">${esc(e.title)}</p><p class="b">${esc(e.item_id ? names.get(e.item_id) ?? e.step : e.step)}</p><p class="c">${clock(e.ts)}</p></div></div>`).join("");
-  return `<section class="card feed" id="log"><div class="card-h"><h2>Decision log</h2>${icon("scroll", "mid")}</div>
+  return `<section class="card feed" id="log"><div class="card-h"><h2>Decision log</h2></div>
     ${items || `<div class="empty">No decisions yet.</div>`}</section>`;
 }
 
@@ -411,6 +450,18 @@ document.addEventListener("click", (ev) => {
   }
 });
 
+document.addEventListener("submit", (ev) => {
+  if (ev.target.id !== "add-advisory") return;
+  ev.preventDefault();
+  const id = $("#advisory-id").value.trim();
+  if (!id) return;
+  setMenu(false);
+  act(`advisory:${id}`, async () => {
+    await api(`/api/advisories/${encodeURIComponent(id)}`, { method: "POST" });
+    state.pinned = false;
+  });
+});
+
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && state.menuOpen) { setMenu(false); $("#simulate").focus(); }
 });
@@ -421,5 +472,6 @@ document.addEventListener("toggle", (ev) => {
   if (ev.target.open) state.openEvents.add(id); else state.openEvents.delete(id);
 }, true);
 
+api("/api/me").then((me) => { state.me = me; render(); }).catch((e) => showError(`Could not identify you: ${e.message}`));
 tick();
 setInterval(tick, REFRESH_MS);

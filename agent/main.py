@@ -1,10 +1,15 @@
 """PatchPilot API and dashboard.
 
-  uv run uvicorn agent.main:app --host 0.0.0.0 --port 8000
+  uv run uvicorn agent.main:app --host 127.0.0.1 --port 8000
 
 A background thread watches feed/ and runs the pipeline for every advisory it
-has not seen. The dashboard (agent/static) only reads the decision log and
-posts approvals.
+has not seen; another one runs the feed piece (agent/feeds.py) that fills it.
+The dashboard (agent/static) only reads the decision log and posts approvals.
+
+Every /api route goes through the auth piece (agent/auth.py, bearer tokens by
+default); the user is recorded on every approval, and actions that change
+something go to the audit log. Publishing a scenario and wiping the decision
+log are demo controls: they exist only with PP_DEMO=1.
 """
 from __future__ import annotations
 
@@ -14,14 +19,17 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, db, feed, fleet, llm, pipeline, probes
+from . import auth, config, db, feed, feeds, fleet, llm, notify, pipeline, policy, probes
 
 STATIC = Path(__file__).resolve().parent / "static"
 _run_lock = threading.Lock()
+
+if notify.on_status not in db.STATUS_HOOKS:
+    db.STATUS_HOOKS.append(notify.on_status)
 
 
 def _watch_feed(stop: threading.Event) -> None:
@@ -41,35 +49,59 @@ def _watch_feed(stop: threading.Event) -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    policy.fleet()                        # a bad policy file stops the agent here, not mid-run
+    llm.check_sovereignty()
+    if auth.generated():
+        print(f"[auth] no API tokens configured; token for this run: {auth.generated()}\n"
+              f"[auth] dashboard: http://localhost:8000/#token={auth.generated()}", flush=True)
     config.FEED_DIR.mkdir(parents=True, exist_ok=True)
     stop = threading.Event()
     watcher = threading.Thread(target=_watch_feed, args=(stop,), daemon=True)
     watcher.start()
+    threading.Thread(target=feeds.run_poller, args=(stop,), daemon=True).start()
     yield
     stop.set()
     watcher.join(timeout=30)
 
 
 app = FastAPI(title="PatchPilot", lifespan=lifespan)
+api = APIRouter(prefix="/api", dependencies=[Depends(auth.require)])
+
+
+def _demo_only() -> None:
+    if not config.DEMO:
+        raise HTTPException(404, "demo controls are off (start the agent with PP_DEMO=1)")
+
+
+@api.get("/me")
+def me(request: Request):
+    user = request.state.user
+    return {"user": user, "may_act": auth.get().may_act(user), "auth": auth.get().piece.kind}
+
+
+@api.get("/audit")
+def audit_log(limit: int = 200):
+    return db.audit_log(limit)
 
 
 # ------------------------------------------------------------------- fleet
 
-@app.get("/api/fleet")
+@api.get("/fleet")
 def get_fleet(refresh: bool = False):
     fl = fleet.get()
     workloads = fl.discover(max_age=0 if refresh else 10)
     latest = {}
     for p in db.latest_probes():
         latest.setdefault(p["workload_id"], []).append(p)
-    return {"llm": {"providers": llm.describe(), "mode": config.LLM_MODE},
+    return {"llm": llm.status(), "demo": config.DEMO,
             "environments": fl.environments(),
             "workloads": [{**w.model_dump(), "probes": latest.get(w.id, [])} for w in workloads]}
 
 
-@app.post("/api/probe")
-def probe_all():
+@api.post("/probe")
+def probe_all(actor: str = Depends(auth.act)):
     """Run every relevant probe on every workload's live path."""
+    db.audit(actor, "probe", "fleet")
     fl = fleet.get()
     advisories = _scenarios() + feed.list_feed()
     out = []
@@ -83,7 +115,7 @@ def probe_all():
 
 # -------------------------------------------------------------------- runs
 
-@app.get("/api/runs")
+@api.get("/runs")
 def runs():
     severity = {a["id"]: feed.advisory_severity(a) for a in _scenarios() + feed.list_feed()}
     out = []
@@ -94,7 +126,7 @@ def runs():
     return out
 
 
-@app.get("/api/runs/{run_id}")
+@api.get("/runs/{run_id}")
 def run(run_id: int, after: int = 0):
     r = db.get_run(run_id)
     if not r:
@@ -102,22 +134,34 @@ def run(run_id: int, after: int = 0):
     return {"run": r, "items": db.items(run_id), "events": db.events(run_id, after)}
 
 
-@app.post("/api/items/{item_id}/approve")
-def approve(item_id: int):
+@api.post("/items/{item_id}/approve")
+def approve(item_id: int, actor: str = Depends(auth.act)):
     try:
-        pipeline.approve(item_id)
+        pipeline.approve(item_id, actor)
     except ValueError as exc:
         raise HTTPException(409, str(exc))
     return {"ok": True}
 
 
-@app.post("/api/items/{item_id}/reject")
-def reject(item_id: int):
+@api.post("/items/{item_id}/reject")
+def reject(item_id: int, actor: str = Depends(auth.act)):
     try:
-        pipeline.reject(item_id)
+        pipeline.reject(item_id, actor)
     except ValueError as exc:
         raise HTTPException(409, str(exc))
     return {"ok": True}
+
+
+@api.post("/advisories/{advisory_id}")
+def add_advisory(advisory_id: str, actor: str = Depends(auth.act)):
+    """Fetch one advisory from OSV by id or CVE (e.g. CVE-2021-44228) and run it."""
+    try:
+        adv = feeds.fetch_osv(advisory_id.strip())
+    except LookupError as exc:
+        raise HTTPException(404, str(exc))
+    feeds.publish([adv])
+    db.audit(actor, "trigger", adv["id"], f"added {advisory_id} from OSV")
+    return {"ok": True, "advisory": adv["id"]}
 
 
 # --------------------------------------------------------------- scenarios
@@ -126,8 +170,10 @@ def _scenarios() -> list[dict]:
     return [feed.load(p) for p in sorted(config.SCENARIOS_DIR.glob("*.json"))]
 
 
-@app.get("/api/scenarios")
+@api.get("/scenarios")
 def scenarios():
+    if not config.DEMO:
+        return []
     seen = {r["advisory_id"] for r in db.list_runs()}
     return [{"name": p.stem, "id": json.loads(p.read_text())["id"],
              "title": feed.title(json.loads(p.read_text())), "summary": json.loads(p.read_text()).get("summary"),
@@ -135,20 +181,22 @@ def scenarios():
             for p in sorted(config.SCENARIOS_DIR.glob("*.json"))]
 
 
-@app.post("/api/scenarios/{name}")
-def trigger(name: str):
+@api.post("/scenarios/{name}", dependencies=[Depends(_demo_only)])
+def trigger(name: str, actor: str = Depends(auth.act)):
     """Publish a scenario's advisory into the feed, as if it had just arrived."""
     src = config.SCENARIOS_DIR / f"{name}.json"
     if not src.exists() or "/" in name:
         raise HTTPException(404, "no such scenario")
     shutil.copy(src, config.FEED_DIR / src.name)
+    db.audit(actor, "trigger", name, "demo scenario")
     return {"ok": True, "advisory": json.loads(src.read_text())["id"]}
 
 
-@app.post("/api/reset")
-def reset():
+@api.post("/reset", dependencies=[Depends(_demo_only)])
+def reset(actor: str = Depends(auth.act)):
     """Forget every run, probe and vet verdict (called by scripts/reset_demo.sh
-    after it has restored the fleet). The LLM answer cache is kept."""
+    after it has restored the fleet). The LLM answer cache and the audit log are kept."""
+    db.audit(actor, "reset", "decision log")
     with _run_lock:
         for f in config.FEED_DIR.glob("*.json"):
             f.unlink()
@@ -159,6 +207,9 @@ def reset():
 
 
 # --------------------------------------------------------------- dashboard
+
+app.include_router(api)
+
 
 @app.get("/")
 def index():

@@ -37,7 +37,7 @@ eco = PypiEcosystem()
 _, old_src = eco.artifacts("acme-authutils", "1.0.0")
 _, new_src = eco.artifacts("acme-authutils", "1.0.1")
 path = "acme_authutils/_metrics.py"
-diff = vetter._diff(path, eco.sources(old_src).get(path), eco.sources(new_src)[path])
+diff = vetter._chunks(path, eco.sources(old_src).get(path), eco.sources(new_src)[path])[0]
 t0 = time.time()
 review = llm.chat(vetter.REVIEW_SYSTEM.format(language="Python"),
                   f"Advisory {adv['id']}: {adv['summary']}\nLibrary: acme-authutils 1.0.0 -> 1.0.1\n"
