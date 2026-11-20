@@ -5,10 +5,15 @@
 
 1. inventory  - Maven: every pom.xml, with ${properties} and dependencyManagement
                 resolved. Python: every requirements*.txt, through LightHouse's
-                own PyPI pin parser (name==version; unpinned lines are counted)
+                own PyPI pin parser (name==version; unpinned lines are counted).
+                Go: every go.mod (direct and // indirect requires), through
+                LightHouse's Go driver
 2. advisories - real OSV records for those packages (api.osv.dev)
 3. match      - LightHouse's own matcher decides which advisories apply
                 (and is cross-checked against OSV's answer)
+   reachable  - Go: with govulncheck installed, whether the vulnerable code is
+                called, only imported, or only in the module graph (ranked in
+                that order); without it the report says so
 4. triage     - optional: LightHouse's AI triage for the N worst runtime
                 matches, with import sites found in the repository as evidence
 
@@ -30,13 +35,14 @@ import requests
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from agent import config, feed, matcher, triage  # noqa: E402  (config loads .env)
+from agent import config, feed, matcher, repo_audit, triage  # noqa: E402  (config loads .env)
+from agent.drivers.golang import GoEcosystem, gomods, parse_requires  # noqa: E402
 from agent.drivers.pypi import _PIN  # noqa: E402
 from agent.schemas import Component, Workload  # noqa: E402
 
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 OSV = "https://api.osv.dev/v1"
-OSV_ECOSYSTEM = {"maven": "Maven", "pypi": "PyPI"}
+OSV_ECOSYSTEM = {"maven": "Maven", "pypi": "PyPI", "go": "Go"}
 SKIP_DIRS = {"target", "node_modules", ".venv", "venv", ".git", "build", "dist", "site-packages"}
 _PROP = re.compile(r"\$\{([^}]+)\}")
 
@@ -128,6 +134,24 @@ def pypi_inventory(repo: Path):
     return comps, len(files), unpinned
 
 
+# ---------------------------------------------------------------- go inventory
+
+def go_inventory(repo: Path):
+    """Every require of every go.mod; scope is "direct" or "indirect" (both ship)."""
+    mods = [m for m in gomods(repo) if not _skipped(m, repo)]
+    indirect = {(m, v) for mod in mods for m, v, ind in parse_requires(mod.read_text(encoding="utf-8")) if ind}
+    found = defaultdict(lambda: {"files": set(), "scopes": set()})
+    for comp in GoEcosystem().components(repo):
+        if _skipped(repo / comp.path, repo):
+            continue
+        entry = found[(comp.name, comp.version)]
+        entry["files"].add(comp.path)
+        entry["scopes"].add("indirect" if (comp.name, comp.version) in indirect else "direct")
+    comps = [(Component(ecosystem="go", name=n, version=v, purl=f"pkg:golang/{n}@v{v}", path=sorted(info["files"])[0]),
+              info) for (n, v), info in sorted(found.items())]
+    return comps, len(mods)
+
+
 # ----------------------------------------------------------------- advisories
 
 def osv_ids(comps) -> dict[int, list[str]]:
@@ -190,7 +214,10 @@ PY_MODULES = {
 
 def grep(repo: Path, comp) -> list[str]:
     """Import sites of the package: the evidence triage reasons from."""
-    if comp.ecosystem == "maven":
+    if comp.ecosystem == "go":
+        pattern = re.compile(r'^\s*(import\s+)?([\w.]+\s+)?"' + re.escape(comp.name) + r'(/[^"]*)?"')
+        files = repo.rglob("*.go")
+    elif comp.ecosystem == "maven":
         prefixes = JAVA_PACKAGES.get(comp.coordinate) or (
             [comp.group] if "." in comp.group else [f"org.apache.{comp.group.replace('-', '.')}"])
         pattern = re.compile(r"^import\s+(static\s+)?(" + "|".join(map(re.escape, prefixes)) + r")\.")
@@ -201,7 +228,7 @@ def grep(repo: Path, comp) -> list[str]:
         files = repo.rglob("*.py")
     hits = []
     for src in files:
-        if _skipped(src, repo) or "test" in src.relative_to(repo).as_posix().lower():
+        if _skipped(src, repo) or "test" in src.relative_to(repo).as_posix().lower() or "vendor" in src.relative_to(repo).parts:
             continue
         try:
             for n, line in enumerate(src.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
@@ -230,14 +257,16 @@ def main() -> None:
 
     mvn, n_poms, unresolved = maven_inventory(repo)
     py, n_reqs, unpinned = pypi_inventory(repo)
-    comps = mvn + py
+    go, n_gomods = go_inventory(repo)
+    comps = mvn + py + go
     print(f"[inventory] {name}: {n_poms} pom.xml -> {len(mvn)} Maven packages ({len(unresolved)} unresolved); "
-          f"{n_reqs} requirements files -> {len(py)} pinned PyPI packages ({len(unpinned)} unpinned)")
+          f"{n_reqs} requirements files -> {len(py)} pinned PyPI packages ({len(unpinned)} unpinned); "
+          f"{n_gomods} go.mod -> {len(go)} Go modules")
 
     ids = osv_ids(comps) if comps else {}
     unique = sorted({v for vs in ids.values() for v in vs})
     with ThreadPoolExecutor(8) as pool:
-        records = dict(zip(unique, pool.map(osv_record, unique)))
+        records = dict(zip(unique, pool.map(lambda v: repo_audit.rated(osv_record(v)), unique)))
     print(f"[advisories] {len(unique)} OSV advisories for {sum(1 for v in ids.values() if v)} packages")
 
     exposure = ("ASSUMED internal service; not verified, this is a source scan" if args.internal else
@@ -245,17 +274,26 @@ def main() -> None:
     wl = Workload(id=f"scan/{name}", name=name, target="scan", target_kind="source", provider="source scan only",
                   image="(not built)", repo=name, internet_exposed=not args.internal, exposure=exposure)
 
+    vc = repo_audit.govulncheck(repo) if go else {"ran": False, "note": "no Go modules"}
+    if go:
+        print(f"[reachable] {vc['note']}")
+
     matches, disagreements = [], []
     for i, (comp, info) in enumerate(comps):
-        for vid in ids.get(i, []):
+        known: set[str] = set()                  # GO-… and GHSA-… records of one vulnerability: report it once
+        for vid in sorted(ids.get(i, []), key=lambda v: (v.startswith("GO-"), v)):
             adv = records[vid]
+            if {adv["id"], *adv.get("aliases", [])} & known:
+                continue
             ours = matcher.match(adv, {wl.id: [comp]})
             if not ours:
                 disagreements.append((comp, adv))
                 continue
+            known |= {adv["id"], *adv.get("aliases", [])}
             runtime = bool(info["scopes"] - {"test", "provided"})
             matches.append((comp, info, adv, ours[0], runtime))
-    matches.sort(key=lambda m: (not m[4], SEV_ORDER.get(severity(m[2]), 9), m[0].coordinate))
+    matches.sort(key=lambda m: (not m[4], repo_audit.REACH.get(reach(m, vc), 9), SEV_ORDER.get(severity(m[2]), 9),
+                                m[0].coordinate))
     print(f"[match] LightHouse's matcher confirms {len(matches)} matches; {len(disagreements)} OSV matches rejected")
 
     triaged = {}
@@ -276,24 +314,34 @@ def main() -> None:
 
     report = repo.parent / f"{repo.name}-lighthouse-report.md"
     report.write_text(render(name, n_poms, n_reqs, comps, unresolved, unpinned, matches, disagreements,
-                             triaged, exposure), encoding="utf-8")
+                             triaged, exposure, n_gomods, vc), encoding="utf-8")
     print(f"[report] {report}")
 
 
-def render(name, n_poms, n_reqs, comps, unresolved, unpinned, matches, disagreements, triaged, exposure) -> str:
+def reach(match, vc) -> str | None:
+    """govulncheck's level for a Go match (called / imported / required / not_reported), else None."""
+    comp, _, adv, _, _ = match
+    return repo_audit.reach_for([adv["id"], *adv.get("aliases", [])], vc) if comp.ecosystem == "go" else None
+
+
+def render(name, n_poms, n_reqs, comps, unresolved, unpinned, matches, disagreements, triaged, exposure,
+           n_gomods=0, vc=None) -> str:
+    vc = vc or {"ran": False, "note": "no Go modules"}
     by_sev = defaultdict(int)
     for _, _, adv, _, runtime in matches:
         if runtime:
             by_sev[severity(adv)] += 1
     affected = {(m[0].coordinate, m[0].version) for m in matches if m[4]}
     lines = [f"# LightHouse read-only scan: {name}", "",
-             f"- Inventory: {n_poms} pom.xml, {n_reqs} requirements files, {len(comps)} pinned third-party packages"
+             f"- Inventory: {n_poms} pom.xml, {n_reqs} requirements files, {n_gomods} go.mod,"
+             f" {len(comps)} pinned third-party packages"
              f" ({len(unresolved)} Maven without a resolvable version, {len(unpinned)} Python unpinned: skipped)",
              f"- {len(affected)} runtime packages with known advisories: "
              + (", ".join(f"{n} {s.lower()}" for s, n in sorted(by_sev.items(), key=lambda x: SEV_ORDER.get(x[0], 9)))
                 or "none"),
              f"- OSV listed {len(disagreements)} more matches that LightHouse's version matcher rejected",
-             f"- Exposure: {exposure}", ""]
+             f"- Exposure: {exposure}",
+             f"- Go reachability: {vc['note']}", ""]
     if triaged:
         lines += ["## AI triage (worst runtime matches)", ""]
         for (coord, ver, vid), (t, source, nhits, title) in triaged.items():
@@ -301,11 +349,14 @@ def render(name, n_poms, n_reqs, comps, unresolved, unpinned, matches, disagreem
                       f"- **{t.severity_for_this_workload}**, reachable={t.reachable}, action **{t.recommended_action}**"
                       f" (source: {source}, {nhits} import sites found)",
                       f"- {t.explanation}", ""]
-    lines += ["## Matches", "", "| Package | Version | Advisory | Severity | Fixed in | Scope |",
-              "|---|---|---|---|---|---|"]
-    for comp, info, adv, m, runtime in matches:
+    lines += ["## Matches", "", "| Package | Version | Advisory | Severity | Fixed in | Scope | Reachable |",
+              "|---|---|---|---|---|---|---|"]
+    for match in matches:
+        comp, info, adv, m, runtime = match
+        r = reach(match, vc)
         lines.append(f"| {comp.coordinate} | {comp.version} | {feed.title(adv)} ({adv['id']}) | "
-                     f"{severity(adv)} | {m.fixed_version or 'none'} | {', '.join(sorted(info['scopes']))} |")
+                     f"{severity(adv)} | {m.fixed_version or 'none'} | {', '.join(sorted(info['scopes']))} | "
+                     f"{repo_audit.REACH_TEXT.get(r, r) if comp.ecosystem == 'go' else 'n/a'} |")
     if disagreements:
         lines += ["", "## OSV matches LightHouse's matcher rejected", "",
                   "Either OSV data LightHouse ignores (e.g. GIT-only ranges) or a gap in `agent/versions.py`.", "",
