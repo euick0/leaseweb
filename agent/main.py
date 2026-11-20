@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, config, db, feed, feeds, fleet, llm, notify, pipeline, policy, probes, settings_api
+from . import auth, config, db, feed, feeds, fleet, llm, notify, pipeline, policy, probes, repos_api, settings_api
 
 STATIC = Path(__file__).resolve().parent / "static"
 _run_lock = threading.Lock()
@@ -160,6 +160,7 @@ def add_advisory(advisory_id: str, actor: str = Depends(auth.act)):
 # --------------------------------------------------------------- dashboard
 
 api.include_router(settings_api.router)
+api.include_router(repos_api.router)
 app.include_router(api)
 
 
