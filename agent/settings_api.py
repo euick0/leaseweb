@@ -343,7 +343,7 @@ def system():
     workloads = fl.discover(max_age=10)
     try:
         load = os.getloadavg()
-    except OSError:
+    except (OSError, AttributeError):          # no load average on Windows
         load = None
     return {
         "host": {"hostname": socket.gethostname(), "os": platform.platform(terse=True),
