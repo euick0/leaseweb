@@ -21,7 +21,7 @@ from typing import Optional
 
 import requests
 
-from . import config, feed, fleet, settings
+from . import config, feed, fleet, overrides, settings
 
 ECOSYSTEM_NAMES = {"maven": "Maven", "pypi": "PyPI", "go": "Go"}
 
@@ -53,8 +53,10 @@ class OsvFeed:
         fl = fleet.get()
         out = set()
         for wl in fl.discover(max_age=0):
+            if not overrides.in_scope(wl):
+                continue
             for c in sbom(fl, wl)[0]:
-                if c.ecosystem in ECOSYSTEM_NAMES:
+                if c.ecosystem in ECOSYSTEM_NAMES and overrides.package_in_scope(c):
                     out.add((ECOSYSTEM_NAMES[c.ecosystem], c.coordinate, c.version))
         return sorted(out)
 

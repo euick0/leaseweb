@@ -84,7 +84,7 @@ def test_api_requires_login_and_records_who(state):
     assert client.get("/").status_code == 200                   # the page itself is public; the data is not
     bob = {"Authorization": "Bearer tok-bob"}
     alice = {"Authorization": "Bearer tok-alice"}
-    assert client.get("/api/me", headers=bob).json() == {"user": "bob", "may_act": False, "auth": "token"}
+    assert client.get("/api/me", headers=bob).json() == {"user": "bob", "may_act": False, "may_admin": False, "auth": "token"}
     assert client.post("/api/scenarios/log4shell", headers=bob).status_code == 403
     assert client.post("/api/scenarios/log4shell", headers=alice).status_code == 200
     assert client.post("/api/items/999/approve", headers=alice).status_code == 409

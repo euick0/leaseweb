@@ -30,7 +30,7 @@ from typing import Optional, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from . import config, policy, providers
+from . import config, overrides, policy, providers
 from .redact import redact
 from .providers import LLMUnavailable  # noqa: F401  (re-exported)
 
@@ -78,7 +78,7 @@ def check_sovereignty() -> None:
 def status() -> dict:
     """For the dashboard: the chain, and whether anything can or did leave our infrastructure."""
     outside = [p.name for p in providers.chain() if providers.hosted(p)]
-    return {"providers": describe(), "mode": config.LLM_MODE, "hosted_providers": outside,
+    return {"providers": describe(), "mode": overrides.llm_mode(), "hosted_providers": outside,
             "sovereign": not outside and egress["hosted_calls"] == 0, **egress}
 
 
@@ -122,7 +122,7 @@ def ask(kind: str, key: str, system: str, user: str, schema: Type[T],
     plain_key = key
     if content_keyed:
         key = f"{key}-{hashlib.sha256((system + chr(0) + user).encode()).hexdigest()[:12]}"
-    if config.LLM_MODE == "live":
+    if overrides.llm_mode() == "live":
         known = cache_get(kind, key, schema) if content_keyed else None
         if known is not None:             # the identical question already has a real answer
             return known
