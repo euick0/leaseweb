@@ -1,0 +1,6 @@
+# The demo libraries are rebuilt byte for byte and checked against recorded
+# checksums: keep their sources identical on every OS.
+acme-libs/** text eol=lf
+# The demo services are built into Linux images, and the probes fingerprint
+# files in them (pp-probe/marker.txt): same bytes on every OS.
+fleet/repos/** text eol=lf

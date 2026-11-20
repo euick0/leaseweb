@@ -35,6 +35,37 @@ The agent listens on 127.0.0.1. Reach it from elsewhere with `ssh -L 8000:localh
 
 Fallback without Kubernetes: `scripts/compose_up.sh`, then `PP_FLEET=fleet.compose.yaml scripts/run_agent.sh`.
 
+## For companies: fill in the puzzle pieces
+
+PatchPilot is built from pieces. Everything company-specific is a blank to fill in; nothing in the code changes.
+
+```
+cp patchpilot.example.yaml patchpilot.yaml   # the pieces: fill in the lines marked FILL IN
+cp .env.example .env                         # the secrets (never committed)
+# fleet.yaml: your repositories (sources) and clusters / Docker hosts (targets)
+uv run python -m agent.doctor                # lists what is still missing, piece by piece
+scripts/run_agent.sh
+```
+
+| Piece | Built-in choices | You fill in |
+|-------|------------------|-------------|
+| `auth` | `token` (default), `proxy` (SSO), `none` | one token per person, or your SSO header; `approvers` |
+| `forge` | `local`, `github`, `gitlab` | a token; `deploy: false` to let your CI/CD roll out the verified fix |
+| `feed` | `files`, `osv` | how often to check, minimum severity |
+| `notify` | `slack`, `teams`, `webhook`, `email` | webhook URLs / SMTP |
+| `llm` | `ollama`, `openai`, `anthropic`, `gemini`, `deepseek`, `kimi`, `mistral`, `openai-compatible` | an API key, or your own model server |
+| sources / targets (`fleet.yaml`) | git; `kubernetes`, `compose` | repository URLs; kube contexts |
+| `policy.yaml` | auto / approval / block per verdict | your rules |
+
+What each piece does:
+
+- **Login and audit:** every API call needs a user (a token by default, see above). Only `approvers` may approve, reject, trigger or reset, and every such action is kept in an audit log (`/api/audit`) that a demo reset does not clear.
+- **Pull requests, not pushes to main:** with `github` or `gitlab`, the repository is cloned on first use, synced before every change, and a verified fix becomes a pull/merge request carrying the evidence (vet verdict, exploit probe before → after). With `deploy: false`, PatchPilot verifies the fix on a canary and stops there: your pipeline deploys on merge.
+- **Advisories without copying files:** `osv` checks every package the fleet runs on a schedule. The dashboard's *Add advisory* box takes any CVE or GHSA id.
+- **Notifications:** sent when an approval is waiting or an action fails, with a link straight to the decision.
+
+Missing a piece? Any slot also takes your own class as `kind: "module:Class"`, with the module placed in `plugins/`. `plugins/README.md` lists what each slot expects, and `plugins/example_jira.py` is a complete example.
+
 ## Model providers
 
 `LLM_PROVIDER` picks the model, or a fallback chain tried in order:

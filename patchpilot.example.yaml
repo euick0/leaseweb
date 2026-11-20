@@ -1,0 +1,78 @@
+# PatchPilot company settings: the puzzle pieces.
+#
+#   1. cp patchpilot.example.yaml patchpilot.yaml   and fill in the blanks marked FILL IN
+#   2. cp .env.example .env                         and put the secrets there (never commit .env)
+#   3. list your repositories and clusters in fleet.yaml
+#   4. uv run python -m agent.doctor                shows what is still missing
+#   5. scripts/run_agent.sh
+#
+# Every slot has built-in pieces. Any slot also takes your own piece as
+# kind: "module:Class" (put the module in plugins/, see plugins/README.md).
+# ${NAME} is read from the environment / .env; ${NAME:-default} has a default.
+
+# Where people reach the dashboard; used in notifications and pull requests.
+public_url: https://patchpilot.example.com            # FILL IN
+
+# ---------------------------------------------------------------- who may use it
+# token : one API token per person; the dashboard asks for it once (the default;
+#         PP_API_TOKENS in the environment also counts, and with no tokens at all
+#         one is generated at startup)
+# none  : no login (laptop demo only; must be asked for)
+# proxy : your SSO proxy (oauth2-proxy, Cloudflare Access, ingress OIDC) sets a header
+auth:
+  kind: token
+  tokens:                                              # FILL IN: one line per person
+    alice: ${PP_TOKEN_ALICE}
+    bob: ${PP_TOKEN_BOB}
+  # kind: proxy
+  # header: X-Forwarded-Email
+  approvers: [alice]                                   # may approve, reject, trigger; others view only
+
+# ------------------------------------------------------- where fixes are proposed
+# local  : commit into local clones (demo)
+# github : push a branch and open a pull request with the evidence
+# gitlab : push a branch and open a merge request with the evidence
+forge:
+  kind: github
+  token: ${GITHUB_TOKEN}                               # FILL IN in .env (scope: repo / api)
+  # api_url: https://github.example.com/api/v3         # GitHub Enterprise / self-hosted GitLab
+  labels: [security, patchpilot]
+  author_name: PatchPilot
+  author_email: patchpilot@example.com                 # FILL IN
+  # true : PatchPilot rolls the verified fix out (canary -> promote) and opens the PR as the record
+  # false: PatchPilot verifies on a canary, opens the PR, and your CI/CD deploys on merge
+  deploy: false
+
+# ------------------------------------------------------ where advisories come from
+# files : only advisories dropped into feed/ (and the dashboard's "Add advisory" box)
+# osv   : check api.osv.dev for every package the fleet runs
+feed:
+  kind: osv
+  every_minutes: 60
+  min_severity: medium                                 # none | low | medium | high | critical
+
+# ----------------------------------------------------- who hears about decisions
+# Sent when an approval is waiting or something went wrong (override with `on:`).
+notify:
+  - kind: slack
+    webhook: ${SLACK_WEBHOOK_URL}                      # FILL IN in .env
+  # - kind: teams
+  #   webhook: ${TEAMS_WEBHOOK_URL}
+  # - kind: email
+  #   smtp_host: smtp.example.com
+  #   smtp_port: 587
+  #   username: ${SMTP_USER}
+  #   password: ${SMTP_PASSWORD}
+  #   from: patchpilot@example.com
+  #   to: [secops@example.com]
+  #   on: [awaiting_approval, failed, rolled_back, escalated, done]
+  # - kind: webhook                                    # PagerDuty, Jira automation, anything JSON
+  #   url: https://hooks.example.com/patchpilot
+  #   headers: {Authorization: "Bearer ${HOOK_TOKEN}"}
+
+# ---------------------------------------------------------------------- the model
+# One provider, or a fallback chain tried in order. Keys go in .env.
+# ollama (your own hardware) | openai | anthropic | gemini | deepseek | kimi | mistral | openai-compatible
+llm:
+  providers: [ollama, openai]
+  mode: live                                           # cache = only previously cached answers

@@ -11,10 +11,10 @@ from typing import Optional
 
 import yaml
 
-from . import config
+from . import config, settings
 from .builder import SOURCE_LABEL, Builder
-from .drivers.base import Ecosystem, Target
-from .drivers.git_source import GitSource
+from .drivers import forge
+from .drivers.base import Ecosystem, Source, Target
 from .drivers.maven import MavenEcosystem
 from .drivers.pypi import PypiEcosystem
 from .schemas import Workload
@@ -22,17 +22,42 @@ from .schemas import Workload
 ECOSYSTEMS: dict[str, Ecosystem] = {"maven": MavenEcosystem(), "pypi": PypiEcosystem()}
 
 
+def register_ecosystems(specs: list) -> None:
+    """Custom ecosystem pieces from fleet.yaml: `ecosystems: ["my_module:GoModules"]`."""
+    for spec in specs or []:
+        eco = settings.load_class(spec, {}, "ecosystem")()
+        ECOSYSTEMS[eco.name] = eco
+
+
+def make_source(s: dict, defaults: dict) -> Source:
+    """A source from fleet.yaml, on the company's forge unless it says otherwise."""
+    cfg = {**(defaults or {}), **{k: v for k, v in s.items() if k != "forge"}}
+    if isinstance(s.get("forge"), dict):
+        cfg.update(s["forge"])
+    elif s.get("forge"):
+        cfg["kind"] = s["forge"]
+    kind = cfg.get("kind", "local")
+    path = Path(s.get("path") or config.REPOS_DIR / s["name"])
+    if not path.is_absolute():
+        path = config.WORKSPACE / path
+    author = (cfg["author_name"], cfg["author_email"]) if cfg.get("author_name") and cfg.get("author_email") else None
+    cls = settings.load_class(kind, forge.BUILTIN, "forge")
+    if cls is forge.GitSource:
+        return cls(s["name"], s.get("url", ""), path, s.get("branch", "main"), clone=bool(cfg.get("clone", False)),
+                   deploy=bool(cfg.get("deploy", True)), author=author)
+    return cls(s["name"], s.get("url", ""), path, s.get("branch", "main"), token=cfg.get("token"),
+               api_url=cfg.get("api_url"), repo=s.get("repo"), labels=cfg.get("labels"),
+               deploy=bool(cfg.get("deploy", True)), clone=bool(cfg.get("clone", True)), author=author)
+
+
 class Fleet:
     def __init__(self, spec: dict):
         self.spec = spec
         reg = spec.get("registry") or {}
         self.builder = Builder(reg.get("push"), reg.get("pull"))
-        self.sources: dict[str, GitSource] = {}
-        for s in spec.get("sources", []):
-            path = Path(s.get("path") or config.REPOS_DIR / s["name"])
-            if not path.is_absolute():
-                path = config.WORKSPACE / path
-            self.sources[s["name"]] = GitSource(s["name"], s.get("url", ""), path, s.get("branch", "main"))
+        register_ecosystems(spec.get("ecosystems"))
+        forge_defaults = settings.section("forge", {})
+        self.sources: dict[str, Source] = {s["name"]: make_source(s, forge_defaults) for s in spec.get("sources", [])}
         self.targets: dict[str, Target] = {}
         self.target_errors: dict[str, str] = {}
         self.target_specs = {t["name"]: t for t in spec.get("targets", [])}
@@ -72,10 +97,20 @@ class Fleet:
             from .drivers.compose import ComposeTarget
             return ComposeTarget(t["name"], t.get("project", t["name"]), t.get("provider", "Docker host"),
                                  t.get("region"), t.get("endpoints"), self.repo_for)
-        raise ValueError(f"unknown target kind {t['kind']!r}")
+        if ":" in t["kind"]:
+            # custom target piece: constructed with its fleet.yaml entry and the repo linker
+            return settings.load_class(t["kind"], {}, "target")(t, self.repo_for)
+        raise ValueError(f"unknown target kind {t['kind']!r}; built-in: kubernetes, compose, "
+                         f"or a custom piece as 'module:Class'")
 
-    def source(self, wl: Workload) -> Optional[GitSource]:
-        return self.sources.get(wl.repo) if wl.repo else None
+    def source(self, wl: Workload) -> Optional[Source]:
+        src = self.sources.get(wl.repo) if wl.repo else None
+        if src is not None and hasattr(src, "ensure"):
+            try:
+                src.ensure()
+            except Exception as exc:              # a clone failure must not hide the workload
+                print(f"[fleet] {src.name}: {exc}", flush=True)
+        return src
 
     def ecosystem(self, name: str) -> Ecosystem:
         return ECOSYSTEMS[name]

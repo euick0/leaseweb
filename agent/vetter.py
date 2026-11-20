@@ -87,7 +87,7 @@ def deterministic_checks(eco: Ecosystem, name: str, old_v: str, new_v: str) -> t
     # 1. checksums recorded when the artifact entered the store
     sums = json.loads(config.CHECKSUMS.read_text()) if config.CHECKSUMS.exists() else {}
     for p in (new_bin, new_src):
-        key = str(p.relative_to(config.ARTIFACTS))
+        key = p.relative_to(config.ARTIFACTS).as_posix()      # checksums.json uses "/" on every OS
         want, got = sums.get(key), sha256(p)
         if want is None:
             flags.append(Flag(check="checksum", severity="hard", file=p.name,

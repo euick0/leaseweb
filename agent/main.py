@@ -3,12 +3,13 @@
   uv run uvicorn agent.main:app --host 127.0.0.1 --port 8000
 
 A background thread watches feed/ and runs the pipeline for every advisory it
-has not seen. The dashboard (agent/static) only reads the decision log and
-posts approvals.
+has not seen; another one runs the feed piece (agent/feeds.py) that fills it.
+The dashboard (agent/static) only reads the decision log and posts approvals.
 
-Every /api route needs a bearer token (agent/auth.py); the token names the
-operator, and approvals are recorded against that name. Publishing a scenario
-and wiping the decision log are demo controls: they exist only with PP_DEMO=1.
+Every /api route goes through the auth piece (agent/auth.py, bearer tokens by
+default); the user is recorded on every approval, and actions that change
+something go to the audit log. Publishing a scenario and wiping the decision
+log are demo controls: they exist only with PP_DEMO=1.
 """
 from __future__ import annotations
 
@@ -18,14 +19,17 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, config, db, feed, fleet, llm, pipeline, policy, probes
+from . import auth, config, db, feed, feeds, fleet, llm, notify, pipeline, policy, probes
 
 STATIC = Path(__file__).resolve().parent / "static"
 _run_lock = threading.Lock()
+
+if notify.on_status not in db.STATUS_HOOKS:
+    db.STATUS_HOOKS.append(notify.on_status)
 
 
 def _watch_feed(stop: threading.Event) -> None:
@@ -48,12 +52,13 @@ async def lifespan(_app: FastAPI):
     policy.fleet()                        # a bad policy file stops the agent here, not mid-run
     llm.check_sovereignty()
     if auth.generated():
-        print(f"[auth] no PP_API_TOKENS set; token for this run: {auth.generated()}\n"
+        print(f"[auth] no API tokens configured; token for this run: {auth.generated()}\n"
               f"[auth] dashboard: http://localhost:8000/#token={auth.generated()}", flush=True)
     config.FEED_DIR.mkdir(parents=True, exist_ok=True)
     stop = threading.Event()
     watcher = threading.Thread(target=_watch_feed, args=(stop,), daemon=True)
     watcher.start()
+    threading.Thread(target=feeds.run_poller, args=(stop,), daemon=True).start()
     yield
     stop.set()
     watcher.join(timeout=30)
@@ -66,6 +71,17 @@ api = APIRouter(prefix="/api", dependencies=[Depends(auth.require)])
 def _demo_only() -> None:
     if not config.DEMO:
         raise HTTPException(404, "demo controls are off (start the agent with PP_DEMO=1)")
+
+
+@api.get("/me")
+def me(request: Request):
+    user = request.state.user
+    return {"user": user, "may_act": auth.get().may_act(user), "auth": auth.get().piece.kind}
+
+
+@api.get("/audit")
+def audit_log(limit: int = 200):
+    return db.audit_log(limit)
 
 
 # ------------------------------------------------------------------- fleet
@@ -83,8 +99,9 @@ def get_fleet(refresh: bool = False):
 
 
 @api.post("/probe")
-def probe_all():
+def probe_all(actor: str = Depends(auth.act)):
     """Run every relevant probe on every workload's live path."""
+    db.audit(actor, "probe", "fleet")
     fl = fleet.get()
     advisories = _scenarios() + feed.list_feed()
     out = []
@@ -118,7 +135,7 @@ def run(run_id: int, after: int = 0):
 
 
 @api.post("/items/{item_id}/approve")
-def approve(item_id: int, actor: str = Depends(auth.require)):
+def approve(item_id: int, actor: str = Depends(auth.act)):
     try:
         pipeline.approve(item_id, actor)
     except ValueError as exc:
@@ -127,12 +144,24 @@ def approve(item_id: int, actor: str = Depends(auth.require)):
 
 
 @api.post("/items/{item_id}/reject")
-def reject(item_id: int, actor: str = Depends(auth.require)):
+def reject(item_id: int, actor: str = Depends(auth.act)):
     try:
         pipeline.reject(item_id, actor)
     except ValueError as exc:
         raise HTTPException(409, str(exc))
     return {"ok": True}
+
+
+@api.post("/advisories/{advisory_id}")
+def add_advisory(advisory_id: str, actor: str = Depends(auth.act)):
+    """Fetch one advisory from OSV by id or CVE (e.g. CVE-2021-44228) and run it."""
+    try:
+        adv = feeds.fetch_osv(advisory_id.strip())
+    except LookupError as exc:
+        raise HTTPException(404, str(exc))
+    feeds.publish([adv])
+    db.audit(actor, "trigger", adv["id"], f"added {advisory_id} from OSV")
+    return {"ok": True, "advisory": adv["id"]}
 
 
 # --------------------------------------------------------------- scenarios
@@ -153,19 +182,21 @@ def scenarios():
 
 
 @api.post("/scenarios/{name}", dependencies=[Depends(_demo_only)])
-def trigger(name: str):
+def trigger(name: str, actor: str = Depends(auth.act)):
     """Publish a scenario's advisory into the feed, as if it had just arrived."""
     src = config.SCENARIOS_DIR / f"{name}.json"
     if not src.exists() or "/" in name:
         raise HTTPException(404, "no such scenario")
     shutil.copy(src, config.FEED_DIR / src.name)
+    db.audit(actor, "trigger", name, "demo scenario")
     return {"ok": True, "advisory": json.loads(src.read_text())["id"]}
 
 
 @api.post("/reset", dependencies=[Depends(_demo_only)])
-def reset():
+def reset(actor: str = Depends(auth.act)):
     """Forget every run, probe and vet verdict (called by scripts/reset_demo.sh
-    after it has restored the fleet). The LLM answer cache is kept."""
+    after it has restored the fleet). The LLM answer cache and the audit log are kept."""
+    db.audit(actor, "reset", "decision log")
     with _run_lock:
         for f in config.FEED_DIR.glob("*.json"):
             f.unlink()
