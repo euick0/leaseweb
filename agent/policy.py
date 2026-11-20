@@ -51,13 +51,13 @@ ALLOWED_PATCH = {
 # One-click autonomy levels for the dashboard; each is a complete, valid policy
 # apart from allow_hosted_llm, which a preset never changes.
 PRESETS = {
-    "observe": {"label": "Recommend only", "summary": "PatchPilot investigates and proposes; a human approves every action.",
+    "observe": {"label": "Recommend only", "summary": "Lighthouse investigates and proposes; a human approves every action.",
                 "policy": {"patch": {"clean": "needs_approval", "unreviewed": "needs_approval",
                                      "suspicious": "needs_approval", "malicious": "block"},
                            "mitigate": "needs_approval", "not_reachable": "needs_approval",
                            "act_now_when": "internet_exposed", "blocked_patch_fallback": "mitigate"}},
     "balanced": {"label": "Balanced", "summary": "Clean, fully reviewed fixes roll out on their own on exposed "
-                                                 "workloads; everything else waits for a human.",
+                                                 "services; everything else waits for a human.",
                  "policy": {k: v for k, v in DEFAULTS.items() if k != "allow_hosted_llm"}},
     "autonomous": {"label": "Autonomous", "summary": "Clean fixes and virtual patches are applied everywhere "
                                                      "without asking. Suspicious fixes still need a human.",

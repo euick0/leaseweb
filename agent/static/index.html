@@ -60,8 +60,8 @@
         <details class="menu" id="demo" hidden><summary>Demo scenarios</summary><div class="menu-list" id="demo-list"></div></details>
         <form class="add-adv act-only" id="add-advisory" title="Fetch an advisory from OSV by id and run it">
           <input type="search" id="advisory-id" placeholder="Paste a CVE or GHSA id" aria-label="Advisory id"><button type="submit">Add advisory</button></form>
-        <button id="refresh" title="Ask every environment for its workloads again">Rediscover</button>
-        <button id="probe" class="act-only dark" title="Run the safe exploit check for every known advisory on every workload">Run exploit checks</button>
+        <button id="refresh" title="Ask every environment for its services again">Rediscover</button>
+        <button id="probe" class="act-only dark" title="Run the safe exploit check for every known advisory on every service">Run exploit checks</button>
       </div>
     </div>
     <div class="conn" id="conn" hidden>Can't reach the Lighthouse agent. Retrying…</div>
@@ -121,7 +121,7 @@ function signedIn() { $("#login").hidden = true; $("#app").hidden = false; }
 // Every internal value gets a plain-language label; the raw value stays in a tooltip.
 const WAITING = ["awaiting_approval", "queued"];
 const STATUS = {
-  matched: ["c-grey", "Found", "Affected workload found; assessment pending"],
+  matched: ["c-grey", "Found", "Affected service found; assessment pending"],
   running: ["c-blue", "In progress", "Lighthouse is working on it"],
   awaiting_approval: ["c-amber", "Needs approval", "Waiting for a human to approve or reject"],
   queued: ["c-grey", "Scheduled", "Scheduled for the next maintenance window; you can act now"],
@@ -138,7 +138,7 @@ const DECISION = { auto: "automatic", needs_approval: "needs approval", queue: "
                    block: "blocked", ignore: "no action needed", escalate: "handed to a human" };
 const PLAN = {
   patch: "Builds the upgraded image, tests it on a canary, rolls it out, then re-runs the exploit check. Any failed step rolls back automatically.",
-  mitigate: "Adds a blocking rule at the gateway in front of the workload, then re-runs the exploit check and a health check. The rule is removed again if the service breaks.",
+  mitigate: "Adds a blocking rule at the gateway in front of the service, then re-runs the exploit check and a health check. The rule is removed again if the service breaks.",
 };
 const VERDICT = { clean: ["c-green", "Fix reviewed: clean"], unreviewed: ["c-amber", "Fix not fully reviewed"],
                   suspicious: ["c-amber", "Fix looks suspicious"], malicious: ["c-red", "Fix is malicious"] };
@@ -154,7 +154,7 @@ const SOURCE = { live: "live model", cache: "cached model answer", fallback: "fa
 
 const chip = (cls, text, title = "") => `<span class="chip ${cls}"${title ? ` title="${esc(title)}"` : ""}>${esc(text)}</span>`;
 const statusChip = (s) => { const [c, l, h] = STATUS[s] || ["c-grey", s, ""]; return chip(c, l, `${h} (${s})`); };
-const sevChip = (s) => s ? chip(SEVERITY[s] || "c-grey", s) : "";
+const sevChip = (s) => s ? chip(SEVERITY[s] || "c-grey", s[0].toUpperCase() + s.slice(1), "Severity") : "";
 const exposureChip = (w) => w.internet_exposed ? chip("c-red", "Internet-facing", w.exposure) : chip("c-grey", "Internal", w.exposure);
 const probeChip = (p) => chip(p.result === "VULNERABLE" ? "c-red" : p.result === "ERROR" ? "c-amber" : "c-green",
   `${p.probe}: ${PROBE[p.result] || p.result}${p.via === "internal" ? " (internal)" : ""}`, `${p.result} via ${p.via} · ${p.detail || ""}`);
@@ -237,7 +237,7 @@ function itemCard(it, events, total) {
   return `<div class="item ${it.id === view.item ? "sel" : ""}" id="item-${it.id}">
     <div class="item-head"><span class="rank" title="Priority ${it.rank ?? "?"} of ${total}: most critical first">#${it.rank ?? "?"}</span>
       <b>${esc(w.name)}</b><span class="small">${esc(w.target)} · ${esc(w.provider)}</span>${exposureChip(w)} ${statusChip(it.status)}
-      <a href="#" class="small" data-steps="${it.id}" style="margin-left:auto">Steps →</a></div>
+      <a href="#" class="small" data-steps="${it.id}" style="margin-left:auto">See steps →</a></div>
     ${packageLine(it)}
     <dl class="facts">
       ${it.triage ? `<dt>AI assessment</dt><dd>${triageBlock(it)}</dd>` : ""}
@@ -257,7 +257,7 @@ function approvalCard(a) {
     <div class="small">For <a href="#/advisories/${a.run.id}">${esc(a.run.title)}</a> · ${esc(w.target)} · ${esc(w.provider)} · ${w.internet_exposed ? "internet-facing" : "internal"}</div>
     ${packageLine(a)}
     <dl class="facts">
-      <dt>Why it is waiting</dt><dd>${a.status === "queued" ? "Internal workload, so policy scheduled it for the maintenance window. " : ""}${esc(d.reason || "")}</dd>
+      <dt>Why it is waiting</dt><dd>${a.status === "queued" ? "Internal service, so policy scheduled it for the maintenance window. " : ""}${esc(d.reason || "")}</dd>
       ${a.triage ? `<dt>AI assessment</dt><dd>${triageBlock(a)}</dd>` : ""}
       ${vetBlock(a.events) ? `<dt>Fix review</dt><dd>${vetBlock(a.events)}</dd>` : ""}
       ${PLAN[d.action] ? `<dt>If you approve</dt><dd>${esc(PLAN[d.action])}</dd>` : ""}
@@ -275,12 +275,12 @@ function approvalRow(a) {
 
 function envCard(env, wls) {
   return `<div class="env"><div class="env-head"><b>${esc(env.label)}</b>${env.error ? chip("c-red", "unreachable") : chip("c-green", "connected")}</div>
-    <div class="small">${esc(env.provider || env.kind)} · ${esc(env.kind)} · ${plural(wls.length, "workload")}</div>
+    <div class="small">${esc(env.provider || env.kind)} · ${esc(env.kind)} · ${plural(wls.length, "service")}</div>
     ${env.error ? `<div class="err">${esc(env.error)}</div>` : ""}</div>`;
 }
 
 function emptyAdvisories() {
-  return `<div class="empty">No advisories yet. Lighthouse picks up every advisory that lands in the feed and decides what to do for each affected workload.
+  return `<div class="empty">No advisories yet. Lighthouse picks up every advisory that lands in the feed and decides what to do for each affected service.
     ${me.mayAct ? "Add one by id (CVE-… or GHSA-…) at the top" + (S.fleet?.demo ? ", or pick a scenario from the Demo menu." : ".") : ""}</div>`;
 }
 
@@ -301,10 +301,10 @@ const SKELETON = {
     </div>`,
   advisories: `<div class="cols"><section><h2>Advisories</h2><div id="adv-list"></div></section>
     <section><div id="adv-head"></div><div class="tabs" id="adv-tabs"></div><div id="adv-body"></div></section></div>`,
-  approvals: `<div id="appr" class="items"></div>`,
+  approvals: `<section><div class="sec-head"><h2>Waiting on you</h2><span class="small">Policy asks a person before these go out. Each card shows the evidence and what happens if you approve.</span></div><div id="appr" class="items"></div></section>`,
   audit: `<section><div class="sec-head"><h2>Who did what</h2><span class="small">Approvals, rejections, triggers and resets. Never cleared by a demo reset.</span></div><div id="audit"></div></section>`,
   fleet: `<div class="envs" id="fl-envs"></div>
-    <section><div class="sec-head"><h2>Workloads</h2><input type="search" id="fl-filter" placeholder="Filter by name, environment, image…"></div><div id="fl-table"></div></section>`,
+    <section><div class="sec-head"><h2>Services</h2><input type="search" id="fl-filter" placeholder="Filter by name, environment, image…"></div><div id="fl-table"></div></section>`,
 };
 
 // ------------------------------------------------------- service map
@@ -451,7 +451,7 @@ function renderMap(states) {
     set("map-body", `<div class="map-empty"><div><b>No services yet</b><p class="muted" style="color:#CFCBBE;margin:6px 0 0">Lighthouse draws this map from the clusters and Docker hosts it is pointed at.${f.environments.some((e) => e.error) ? " Some environments could not be reached: " + f.environments.filter((e) => e.error).map((e) => esc(e.label)).join(", ") + "." : ""}</p></div>
       <ol><li><b>1. List where code lives and runs</b>Add your repositories as <code>sources</code> and your clusters or hosts as <code>targets</code> in fleet.yaml.</li>
         <li><b>2. Check the setup</b>Run <code>uv run python -m agent.doctor</code>. It lists what is still missing, piece by piece.</li>
-        <li><b>3. Discover</b>Press Rediscover at the top. Lighthouse asks every environment for its workloads.</li></ol></div>`);
+        <li><b>3. Discover</b>Press Rediscover at the top. Lighthouse asks every environment for its services.</li></ol></div>`);
     return;
   }
   const openAdv = S.runs.filter((r) => r.items.some((i) => !["done", "ignored"].includes(i.status))).length;
@@ -540,17 +540,17 @@ function renderAdvisories() {
   set("adv-list", S.runs.map((x) => `<a class="run ${x.id === view.run ? "sel" : ""}" href="#/advisories/${x.id}">
       <div class="item-head"><b>${esc(x.title)}</b> ${sevChip(x.severity)} ${statusChip(x.status)}</div>
       <div class="small">${esc(x.summary)}</div>
-      <div class="small">${ago(x.started)} · ${plural(x.items.length, "workload")}</div></a>`).join("") || emptyAdvisories());
+      <div class="small">${ago(x.started)} · ${plural(x.items.length, "service")}</div></a>`).join("") || emptyAdvisories());
   const detail = S.details.get(view.run);
   if (!detail) {
-    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what Lighthouse decided for each workload.</div>`);
+    set("adv-head", S.runs.length ? `<div class="empty">Loading…</div>` : `<div class="empty">Select an advisory to see what Lighthouse decided for each affected service.</div>`);
     set("adv-tabs", ""); set("adv-body", "");
     return;
   }
   const { run, items, events } = detail, sev = S.runs.find((x) => x.id === run.id)?.severity;
-  set("adv-head", `<div class="item-head"><h1 style="margin:0;font-size:20px">${esc(run.title)}</h1> ${sevChip(sev)} ${statusChip(run.status)}</div>
+  set("adv-head", `<div class="item-head"><h1 class="adv-title">${esc(run.title)}</h1> ${sevChip(sev)} ${statusChip(run.status)}</div>
     <div>${esc(run.summary)}</div><div class="small">Started ${time(run.started)}${run.outcome ? " · " + esc(run.outcome) : ""}</div>`);
-  set("adv-tabs", ["decisions", "timeline"].map((t) => `<button data-tab="${t}" class="${view.tab === t ? "on" : ""}">${t === "decisions" ? `Decisions (${items.length})` : "Timeline"}</button>`).join(""));
+  set("adv-tabs", ["decisions", "timeline"].map((t) => `<button data-tab="${t}" class="${view.tab === t ? "on" : ""}">${t === "decisions" ? `Decisions (${items.length})` : "Steps"}</button>`).join(""));
   if (view.tab === "decisions") {
     set("adv-body", `<div class="items">${items.map((it) => itemCard(it, events.filter((e) => e.item_id === it.id), items.length)).join("")
       || `<div class="empty">${esc(run.outcome || "Working…")}</div>`}</div>`);
@@ -560,7 +560,7 @@ function renderAdvisories() {
   const shown = sel ? events.filter((e) => e.item_id === sel.id || !e.item_id) : events;
   const open = new Set([...document.querySelectorAll("#adv-body details[open]")].map((d) => d.dataset.ev));
   const scroll = new Map([...document.querySelectorAll("#adv-body details[open] pre")].map((el) => [el.parentElement.dataset.ev, el.scrollTop]));
-  set("adv-body", `${sel ? `<div class="small" style="margin-bottom:8px">Showing steps for <b>${esc(sel.workload.name)}</b> · <a href="#" data-steps="">show all</a></div>` : ""}
+  set("adv-body", `${sel ? `<div class="small steps-for">Showing steps for <b>${esc(sel.workload.name)}</b> · <a href="#" data-steps="">show all</a></div>` : ""}
     <div class="events">${shown.map((e) => {
       const body = [e.detail, e.data ? JSON.stringify(e.data, null, 2) : ""].filter(Boolean).join("\n\n");
       return `<div class="ev"><span class="t">${time(e.ts)}</span><span class="s st-${e.status}" title="${esc(e.step)}">${esc(STEP[e.step] || e.step)}</span>
@@ -571,7 +571,7 @@ function renderAdvisories() {
 
 function renderApprovals() {
   set("appr", S.approvals.map(approvalCard).join("")
-    || `<section><div class="empty">Nothing is waiting for you. When policy says a fix needs a human, for example a virtual patch or a fix the model could not fully review, it shows up here.</div></section>`);
+    || `<div class="empty">Nothing is waiting for you. When policy says a fix needs a human, for example a virtual patch or a fix the model could not fully review, it shows up here.</div>`);
 }
 
 function renderFleet() {
@@ -580,12 +580,12 @@ function renderFleet() {
   const env = Object.fromEntries(f.environments.map((e) => [e.name, e.label]));
   const rows = f.workloads.filter((w) => !q || [w.name, w.target, env[w.target], w.image, w.repo, w.provider, w.region]
     .some((v) => String(v || "").toLowerCase().includes(q)));
-  set("fl-table", rows.length ? `<div class="table-wrap"><table class="stack"><thead><tr><th>Workload</th><th>Environment</th><th>Exposure</th>
+  set("fl-table", rows.length ? `<div class="table-wrap"><table class="stack"><thead><tr><th>Service</th><th>Environment</th><th>Exposure</th>
     <th class="hide-sm">Image</th><th class="hide-sm">Repository</th><th>Exploit check</th></tr></thead><tbody>
     ${rows.map((w) => `<tr><td><b>${esc(w.name)}</b></td><td>${esc(env[w.target] || w.target)}<div class="small">${esc(w.provider)}${w.region ? " · " + esc(w.region) : ""}</div></td>
       <td>${exposureChip(w)}<div class="small">${esc(w.exposure)}</div></td><td class="hide-sm small">${esc(tag(w.image))}</td>
       <td class="hide-sm small">${esc(w.repo || "not linked")}</td><td>${w.probes.map(probeChip).join(" ") || `<span class="small">not checked</span>`}</td></tr>`).join("")}
-    </tbody></table></div>` : `<div class="empty">${q ? "No workload matches the filter." : "No workloads discovered."}</div>`);
+    </tbody></table></div>` : `<div class="empty">${q ? "No service matches the filter." : "No services discovered yet. Press Rediscover at the top."}</div>`);
 }
 
 function renderAudit() {
@@ -718,7 +718,7 @@ document.addEventListener("click", async (ev) => {
       el.disabled = true; el.textContent = "Checking…";
       const out = await api("/api/probe", { method: "POST" });
       const bad = out.filter((p) => p.result === "VULNERABLE").length;
-      toast(out.length ? `${plural(out.length, "exploit check")} run, ${bad} exploitable.` : "No workload carries a package with a known exploit check.", bad > 0);
+      toast(out.length ? `${plural(out.length, "exploit check")} run, ${bad} exploitable.` : "No service carries a package with a known exploit check.", bad > 0);
       el.disabled = false; el.textContent = "Run exploit checks";
     } else if (el.id === "refresh") {
       await api("/api/fleet?refresh=true");

@@ -64,7 +64,7 @@ async def lifespan(_app: FastAPI):
     watcher.join(timeout=30)
 
 
-app = FastAPI(title="PatchPilot", lifespan=lifespan)
+app = FastAPI(title="Lighthouse", lifespan=lifespan)
 api = APIRouter(prefix="/api", dependencies=[Depends(auth.require)])
 
 
