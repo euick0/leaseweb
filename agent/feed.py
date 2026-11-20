@@ -1,7 +1,7 @@
 """Mock advisory feed. Files in feed/*.json are OSV records, so a live OSV
 query can replace this later without touching the parser.
 
-Lighthouse-specific hints live in `database_specific.lighthouse`, which OSV
+LightHouse-specific hints live in `database_specific.lighthouse`, which OSV
 reserves for the publishing database:
   grep            - strings to search for in a repository's source (triage input)
   probe           - name of the safe exploit probe that proves the result
@@ -21,7 +21,7 @@ from typing import Optional
 from . import config
 from .versions import compare
 
-# OSV ecosystem name -> Lighthouse ecosystem driver
+# OSV ecosystem name -> LightHouse ecosystem driver
 ECOSYSTEMS = {"Maven": "maven", "PyPI": "pypi", "Go": "go"}
 
 

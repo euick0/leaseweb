@@ -1,5 +1,5 @@
 """The settings page's API (agent/static/settings.html): the AI model, the AI's
-permissions (the policy), the scope Lighthouse works on, and what is running
+permissions (the policy), the scope LightHouse works on, and what is running
 on this server.
 
 Everyone who can log in may read; changing anything takes `auth.admin`, is

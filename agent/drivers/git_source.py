@@ -17,7 +17,7 @@ import yaml
 
 from .base import DriverError
 
-AUTHOR = ["-c", "user.name=Lighthouse", "-c", "user.email=lighthouse@localhost"]
+AUTHOR = ["-c", "user.name=LightHouse", "-c", "user.email=lighthouse@localhost"]
 SYNC_EVERY = 300.0       # seconds between fetches when only reading pins
 
 

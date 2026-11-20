@@ -125,7 +125,7 @@ class Email:
 
     def send(self, m: dict) -> None:
         msg = EmailMessage()
-        msg["Subject"], msg["From"], msg["To"] = f"[Lighthouse] {m['title']}", self.cfg["from"], ", ".join(self.to)
+        msg["Subject"], msg["From"], msg["To"] = f"[LightHouse] {m['title']}", self.cfg["from"], ", ".join(self.to)
         msg.set_content(_text(m))
         with smtplib.SMTP(self.cfg["smtp_host"], int(self.cfg.get("smtp_port", 587)), timeout=20) as smtp:
             if self.cfg.get("starttls", True):

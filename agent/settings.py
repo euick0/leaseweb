@@ -1,6 +1,6 @@
 """Company settings: the puzzle board.
 
-Lighthouse is built from pieces. Each slot below has built-in pieces, and a
+LightHouse is built from pieces. Each slot below has built-in pieces, and a
 company fills in only what is specific to it in `lighthouse.yaml` (secrets
 go in `.env`, referenced as ${NAME}):
 
