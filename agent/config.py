@@ -1,11 +1,31 @@
-"""Runtime configuration. Paths and knobs come from environment variables;
-what the fleet looks like (sources, targets) comes from fleet.yaml."""
+"""Runtime configuration. Paths and knobs come from environment variables
+(and `.env`); what the fleet looks like (sources, targets) comes from
+fleet.yaml; the company's pieces (auth, forge, feed, notify) from
+patchpilot.yaml, see agent/settings.py."""
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 WORKSPACE = Path(os.environ.get("PP_WORKSPACE", Path(__file__).resolve().parent.parent))
+
+
+def load_dotenv(path: Path) -> None:
+    """KEY=value lines from .env into the environment; real variables win."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$", line)
+        if m and not line.lstrip().startswith("#") and m.group(1) not in os.environ:
+            value = m.group(2)
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+                value = value[1:-1]
+            os.environ[m.group(1)] = value
+
+
+load_dotenv(Path(os.environ.get("PP_ENV_FILE", WORKSPACE / ".env")))
+SETTINGS_FILE = Path(os.environ.get("PP_CONFIG", WORKSPACE / "patchpilot.yaml"))
 
 ARTIFACTS = WORKSPACE / "artifacts"
 FEED_DIR = WORKSPACE / "feed"

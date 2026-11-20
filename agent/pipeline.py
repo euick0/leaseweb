@@ -12,7 +12,7 @@ import threading
 import traceback
 from typing import Optional
 
-from . import config, db, feed, fleet, inventory, matcher, mitigation, policy, probes, triage, vetter
+from . import config, db, feed, fleet, inventory, matcher, mitigation, policy, probes, settings, triage, vetter
 from .builder import BuildError
 from .drivers.base import DriverError
 from .schemas import Component, Match, TriageResult, VetResult, Workload
@@ -244,22 +244,24 @@ def finish_run(run_id: int) -> None:
     db.update_run(run_id, status, ", ".join(f"{n} {s.replace('_', ' ')}" for s, n in counts.items()))
 
 
-def approve(item_id: int) -> None:
+def approve(item_id: int, actor: str = "operator") -> None:
     item = db.get_item(item_id)
     if not item or item["status"] not in ("awaiting_approval", "queued"):
         raise ValueError("item is not waiting for a decision")
     db.update_item(item_id, status="running")
     db.update_run(item["run_id"], "running")
-    Log(item["run_id"], item_id)("policy", "ok", f"Approved by operator: {item['decision']['action']}")
+    Log(item["run_id"], item_id)("policy", "ok", f"Approved by {actor}: {item['decision']['action']}")
+    db.audit(actor, "approve", item["workload_id"], f"run {item['run_id']} item {item_id}: {item['decision']['action']}")
     threading.Thread(target=lambda: (execute(item_id), finish_run(item["run_id"])), daemon=True).start()
 
 
-def reject(item_id: int) -> None:
+def reject(item_id: int, actor: str = "operator") -> None:
     item = db.get_item(item_id)
     if not item or item["status"] not in ("awaiting_approval", "queued"):
         raise ValueError("item is not waiting for a decision")
-    db.update_item(item_id, status="blocked", outcome="rejected by operator")
-    Log(item["run_id"], item_id)("policy", "warn", "Rejected by operator")
+    db.update_item(item_id, status="blocked", outcome=f"rejected by {actor}")
+    Log(item["run_id"], item_id)("policy", "warn", f"Rejected by {actor}")
+    db.audit(actor, "reject", item["workload_id"], f"run {item['run_id']} item {item_id}")
     finish_run(item["run_id"])
 
 
@@ -347,6 +349,19 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
     if canary and canary["result"] == "VULNERABLE":
         return fail("canary", "exploit still works on the canary")
 
+    title = f"Bump {comp.coordinate} {comp.version} -> {version} ({feed.title(adv)})"
+    link = f"{settings.public_url()}/#run={item['run_id']}&item={item['id']}"
+    if not getattr(src, "deploy", True):
+        # the company's CI/CD deploys: propose the verified change and stop here
+        target.remove_canary(wl)
+        proof = {"level": "exploit probe on canary", "before": before, "after": canary} if before and canary else None
+        url = src.accept_change(branch, title, _review_body(adv, wl, comp, version, bump, proof, False, link))
+        log("change", "ok", f"Change proposed: {url}" if url else "Change merged locally",
+            "Verified on a canary; production is left to the company's CI/CD", {"url": url})
+        db.update_item(item["id"], status="proposed", proof=proof,
+                       outcome=f"verified on canary, {'pull request ' + url if url else 'merged'}"[:300])
+        return
+
     try:
         previous = target.promote(wl, image)
     except DriverError as exc:
@@ -361,7 +376,6 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
         log("rollback", "fail", "Still vulnerable after promote: rolled back", after["detail"])
         db.update_item(item["id"], status="rolled_back", outcome="still vulnerable after promote")
         return
-    src.accept_change(branch)
 
     if after:
         proof = {"level": "exploit probe", "before": before, "after": after}
@@ -370,9 +384,32 @@ def _patch(item: dict, adv: dict, log: Log) -> None:
         now = next((c.version for c in comps if c.name == comp.name), "unknown")
         ok, detail = probes.health(target, wl, probes.default_via(wl), 10)
         proof = {"level": "re-scan + health", "rescan": f"{comp.name} {now} ({how})", "health": ok}
+    url = src.accept_change(branch, title, _review_body(adv, wl, comp, version, bump, proof, True, link))
+    if url:
+        log("change", "ok", f"Pull request opened: {url}", "Production already runs the verified build", {"url": url})
+        proof["review"] = url
     db.update_item(item["id"], status="done", proof=proof,
                    outcome=f"patched to {comp.name} {version}" + (f": {before['result']} → {after['result']}"
                                                                   if before and after else ""))
+
+
+def _review_body(adv: dict, wl: Workload, comp: Component, version: str, bump: list[Component],
+                 proof: Optional[dict], deployed: bool, link: str) -> str:
+    """The pull request description: what, why, and the evidence."""
+    lines = [f"**{feed.title(adv)}**: {adv.get('summary', '')}", "",
+             f"- Service: `{wl.name}` in `{wl.target}` ({wl.provider})",
+             f"- Package: `{comp.coordinate}` {comp.version} → **{version}**"
+             + (f" (with {', '.join(c.name for c in bump[1:])})" if len(bump) > 1 else ""),
+             f"- Update vetted by PatchPilot before the build (checksums, source match, diff review)"]
+    if proof and proof.get("before") and proof.get("after"):
+        lines.append(f"- Exploit probe: **{proof['before']['result']} → {proof['after']['result']}** "
+                     f"({proof['after'].get('via', '')})")
+    elif proof and proof.get("rescan"):
+        lines.append(f"- Re-scan after deploy: {proof['rescan']}")
+    lines += ["", "Production already runs this build; merging records it on the main branch." if deployed
+              else "Verified on a canary only: merging lets your CI/CD roll it out.",
+              "", f"Decision log: {link}"]
+    return "\n".join(lines)
 
 
 def _mitigate(item: dict, adv: dict, log: Log) -> None:

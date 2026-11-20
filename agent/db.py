@@ -7,7 +7,7 @@ import json
 import sqlite3
 import threading
 import time
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from . import config
 
@@ -69,6 +69,14 @@ CREATE TABLE IF NOT EXISTS vet_cache (
     key     TEXT PRIMARY KEY,           -- ecosystem:name:from->to@sha256
     result  TEXT NOT NULL,
     ts      REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS audit (      -- who did what; never cleared by a demo reset
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      REAL NOT NULL,
+    actor   TEXT NOT NULL,
+    action  TEXT NOT NULL,              -- approve | reject | trigger | probe | reset
+    target  TEXT,
+    detail  TEXT
 );
 """
 
@@ -160,12 +168,23 @@ def create_item(run_id: int, workload, component, fixed_version: Optional[str]) 
                  (run_id, workload.id, _dump(workload), _dump(component), fixed_version, time.time())).lastrowid
 
 
+# called with the item after every status change (notifications subscribe here)
+STATUS_HOOKS: list[Callable[[dict], None]] = []
+
+
 def update_item(item_id: int, **fields) -> None:
     if not fields:
         return
     cols = ", ".join(f"{k} = ?" for k in fields)
     vals = tuple(_dump(v) if k in _JSON else v for k, v in fields.items())
     _exec(f"UPDATE items SET {cols}, updated = ? WHERE id = ?", (*vals, time.time(), item_id))
+    if "status" in fields and STATUS_HOOKS:
+        item = get_item(item_id)
+        for hook in STATUS_HOOKS:
+            try:
+                hook(item)
+            except Exception as exc:              # a broken notifier must never stop a rollout
+                print(f"[db] status hook {hook}: {type(exc).__name__}: {exc}", flush=True)
 
 
 def get_item(item_id: int) -> Optional[dict]:
@@ -201,6 +220,17 @@ def latest_probes() -> list[dict]:
     return _query("""SELECT p.* FROM probes p
                      JOIN (SELECT workload_id, probe, MAX(id) AS id FROM probes
                            WHERE via != 'canary' GROUP BY workload_id, probe) l ON p.id = l.id""")
+
+
+# ------------------------------------------------------------------ audit
+
+def audit(actor: str, action: str, target: Optional[str] = None, detail: Optional[str] = None) -> None:
+    _exec("INSERT INTO audit (ts, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)",
+          (time.time(), actor, action, target, detail))
+
+
+def audit_log(limit: int = 200) -> list[dict]:
+    return _query("SELECT * FROM audit ORDER BY id DESC LIMIT ?", (limit,))
 
 
 # -------------------------------------------------------------- vet cache

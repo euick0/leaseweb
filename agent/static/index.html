@@ -30,6 +30,8 @@ button:hover { border-color: var(--muted); }
 button.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
 button.danger { color: var(--red); }
 button:disabled { opacity: .5; cursor: default; }
+input { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 5px 8px; }
+header form.actions { margin-left: 0; }
 main { padding: 16px 20px; display: grid; gap: 16px; }
 section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
 h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
@@ -77,11 +79,15 @@ h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacin
 <header>
   <div>
     <h1>PatchPilot</h1>
-    <div class="sub">One advisory in, one proven decision per workload out · <span id="llm">model</span></div>
+    <div class="sub">One advisory in, one proven decision per workload out · <span id="llm">model</span> · <span id="me"></span></div>
   </div>
   <div class="actions" id="scenarios"></div>
+  <form class="actions act-only" id="add-advisory">
+    <input id="advisory-id" placeholder="CVE-… or GHSA-…" size="16" aria-label="Advisory id">
+    <button type="submit">Add advisory</button>
+  </form>
   <div class="actions">
-    <button id="probe">Probe fleet</button>
+    <button id="probe" class="act-only">Probe fleet</button>
     <button id="refresh">Rediscover</button>
   </div>
 </header>
@@ -104,17 +110,34 @@ h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacin
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const api = async (path, opts) => {
-  const r = await fetch(path, opts);
+let askToken = null;
+const api = async (path, opts = {}) => {
+  const token = localStorage.getItem("pp-token");
+  const headers = { ...(opts.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const r = await fetch(path, { ...opts, headers });
+  if (r.status === 401) {
+    localStorage.removeItem("pp-token");
+    askToken = askToken || Promise.resolve(prompt("PatchPilot API token:")).finally(() => setTimeout(() => { askToken = null; }, 0));
+    const t = await askToken;
+    if (t) { localStorage.setItem("pp-token", t.trim()); return api(path, opts); }
+  }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
 };
-let selectedRun = null, selectedItem = null, busy = false;
+let selectedRun = null, selectedItem = null, busy = false, mayAct = true;
+
+async function loadMe() {
+  const m = await api("/api/me");
+  mayAct = m.may_act;
+  $("#me").textContent = m.auth === "none" ? "no login (demo)" : `${m.user}${m.may_act ? "" : " · view only"}`;
+  document.querySelectorAll(".act-only").forEach((el) => { el.style.display = mayAct ? "" : "none"; });
+}
 
 const STATUS = {
   matched: ["c-grey", "matched"], running: ["c-blue", "running"], awaiting_approval: ["c-amber", "awaiting approval"],
   queued: ["c-grey", "queued"], done: ["c-green", "done"], blocked: ["c-red", "blocked"], failed: ["c-red", "failed"],
   ignored: ["c-grey", "ignored"], rolled_back: ["c-amber", "rolled back"], escalated: ["c-amber", "needs a human"],
+  proposed: ["c-green", "fix proposed"],
 };
 const VERDICT = { clean: "c-green", suspicious: "c-amber", malicious: "c-red" };
 const SEVERITY = { critical: "c-red", high: "c-amber", medium: "c-blue", low: "c-grey", none: "c-grey" };
@@ -127,8 +150,8 @@ const tag = (image) => image.split("/").pop();
 
 async function loadScenarios() {
   const list = await api("/api/scenarios");
-  $("#scenarios").innerHTML = list.map((s) =>
-    `<button class="${s.triggered ? "" : "primary"}" data-scenario="${esc(s.name)}" title="${esc(s.summary)}">${esc(s.name)}</button>`).join("");
+  $("#scenarios").innerHTML = mayAct ? list.map((s) =>
+    `<button class="${s.triggered ? "" : "primary"}" data-scenario="${esc(s.name)}" title="${esc(s.summary)}">${esc(s.name)}</button>`).join("") : "";
 }
 
 async function loadFleet(refresh = false) {
@@ -181,7 +204,7 @@ async function loadRun() {
   $("#run").innerHTML = `<div class="items">${items.map((it) => {
     const w = it.workload, t = it.triage, d = it.decision, p = it.proof;
     const evs = events.filter((e) => e.item_id === it.id);
-    const actions = ["awaiting_approval", "queued"].includes(it.status)
+    const actions = mayAct && ["awaiting_approval", "queued"].includes(it.status)
       ? `<div><button class="primary" data-approve="${it.id}">${it.status === "queued" ? "Act now" : "Approve " + esc(d.action)}</button>
          <button class="danger" data-reject="${it.id}">Reject</button></div>` : "";
     return `<div class="item ${it.id === selectedItem ? "sel" : ""}" data-item="${it.id}">
@@ -195,6 +218,7 @@ async function loadRun() {
       ${d ? `<div><b>Policy:</b> ${esc(d.action)} → ${esc(d.decision.replace("_", " "))} <span class="small">${esc(d.reason)}</span></div>` : ""}
       ${p && p.before && p.after ? `<div class="proof"><span class="v-${p.before.result}">${p.before.result}</span><span class="arrow">→</span><span class="v-${p.after.result}">${p.after.result}</span><span class="small">${esc(p.level)} · ${esc(p.after.via)}</span></div>`
         : p ? `<div class="small">proof: ${esc(p.level)} ${esc(p.rescan || "")}</div>` : ""}
+      ${p && p.review ? `<div class="small">review: <a href="${esc(p.review)}" target="_blank" rel="noopener">${esc(p.review)}</a></div>` : ""}
       ${it.outcome && !["awaiting_approval", "queued"].includes(it.status) ? `<div class="small">${esc(it.outcome)}</div>` : ""}
       ${actions}
     </div>`;
@@ -222,13 +246,27 @@ document.addEventListener("click", async (ev) => {
   } catch (e) { alert(e.message); el.disabled = false; }
 });
 
+$("#add-advisory").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const id = $("#advisory-id").value.trim();
+  if (!id) return;
+  try {
+    await api(`/api/advisories/${encodeURIComponent(id)}`, { method: "POST" });
+    $("#advisory-id").value = ""; selectedRun = null; await tick();
+  } catch (e) { alert(e.message); }
+});
+
+const hash = new URLSearchParams(location.hash.slice(1));   // links from notifications: #run=3&item=7
+if (hash.get("run")) selectedRun = Number(hash.get("run"));
+if (hash.get("item")) selectedItem = Number(hash.get("item"));
+
 async function tick() {
   if (busy) return;
   busy = true;
   try { await Promise.all([loadRuns().then(loadRun), loadFleet()]); } catch (e) { console.error(e); }
   busy = false;
 }
-loadScenarios();
+loadMe().then(loadScenarios).catch(console.error);
 tick();
 setInterval(tick, 2000);
 </script>

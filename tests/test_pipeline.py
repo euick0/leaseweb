@@ -100,6 +100,39 @@ def test_log4shell_same_cve_two_verdicts(demo):
     assert reports["proof"]["after"]["via"] == "internal"
 
 
+def test_propose_only_opens_a_pull_request_and_leaves_production_to_ci(demo, monkeypatch, tmp_path):
+    """forge: github, deploy: false. The fix is verified on a canary, pushed to the
+    company's remote and proposed as a pull request; production is not touched."""
+    from agent.drivers import forge
+    repo = config.REPOS_DIR / "orders-java"
+    bare = tmp_path / "orders-java.git"
+    subprocess.run(["git", "clone", "-q", "--bare", str(repo), str(bare)], check=True)
+    subprocess.run(["git", "remote", "add", "origin", str(bare)], cwd=repo, check=True)
+    calls = []
+
+    def fake_api(method, url, **kw):
+        calls.append((method, url, kw.get("json")))
+        body = {"number": 12, "html_url": "https://github.com/acme/orders-java/pull/12"}
+        return type("R", (), {"status_code": 201, "text": "", "json": lambda self: body})()
+
+    monkeypatch.setattr(forge.requests, "request", fake_api)
+    demo.sources["orders-java"] = forge.GitHubSource("orders-java", str(bare), repo, token="t",
+                                                      repo="acme/orders-java", deploy=False)
+    image_before = demo.target("hyperscaler").list_workloads()[0].image
+
+    orders = items_by_workload(publish("log4shell"))["orders-java"]
+    assert orders["status"] == "proposed", orders["outcome"]
+    assert (orders["proof"]["before"]["result"], orders["proof"]["after"]["result"]) == ("VULNERABLE", "SAFE")
+    assert orders["proof"]["after"]["via"] == "canary"
+    assert "pull/12" in orders["outcome"]
+    pr = calls[0][2]
+    assert pr["head"].startswith("patchpilot/") and "VULNERABLE → SAFE" in pr["body"]
+    assert "2.17.1" in subprocess.run(["git", "show", f"{pr['head']}:vendor.txt"], cwd=bare,
+                                      capture_output=True, text=True).stdout
+    assert "2.14.1" in git("orders-java", "show", "main:vendor.txt")          # nothing merged
+    assert demo.target("hyperscaler").list_workloads()[0].image == image_before  # CI/CD deploys, not us
+
+
 def test_trojan_fix_blocked_then_virtual_patch(demo):
     images_before = len(demo.builder.images)
     run_id = publish("trojan")
@@ -163,12 +196,13 @@ def test_api_and_dashboard(demo):
         deadline = time.time() + 30
         while time.time() < deadline and not client.get("/api/runs").json():
             time.sleep(0.2)
-        run = client.get(f"/api/runs/{client.get('/api/runs').json()[0]['id']}").json()
-        item = run["items"][0]
+        run_id = client.get("/api/runs").json()[0]["id"]
+        item = {"status": None}
         deadline = time.time() + 30
         while time.time() < deadline and item["status"] != "awaiting_approval":
             time.sleep(0.2)
-            item = client.get(f"/api/runs/{run['run']['id']}").json()["items"][0]
+            items = client.get(f"/api/runs/{run_id}").json()["items"]   # a run exists before its items
+            item = items[0] if items else item
         assert client.post(f"/api/items/{item['id']}/approve").status_code == 200
         assert client.post(f"/api/items/{item['id']}/approve").status_code == 409
         assert wait_settled(item["id"])["status"] == "done"

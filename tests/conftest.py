@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -6,6 +7,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+# tests never read a developer's .env or company settings
+os.environ["PP_ENV_FILE"] = os.devnull
+os.environ.setdefault("PP_CONFIG", str(ROOT / "tests" / "no-settings.yaml"))
 
 from agent import config, db  # noqa: E402
 

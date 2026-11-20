@@ -31,7 +31,7 @@ else
   done
 fi
 rm -f feed/*.json
-if curl -fsS -X POST "$AGENT/api/reset" >/dev/null 2>&1; then
+if curl -fsS -X POST ${PP_API_TOKEN:+-H "Authorization: Bearer $PP_API_TOKEN"} "$AGENT/api/reset" >/dev/null 2>&1; then
   echo "agent state cleared"
 else
   rm -f state/decisions.sqlite
