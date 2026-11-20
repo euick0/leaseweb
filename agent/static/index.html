@@ -165,7 +165,7 @@ const ago = (ts) => {
     : new Date(ts * 1000).toLocaleDateString();
 };
 const tag = (image) => image.split("/").pop();
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n, word, many) => `${n} ${n === 1 ? word : (many || word + "s")}`;
 const pkg = (c) => (c.group ? c.group + ":" : "") + c.name;
 
 // ----------------------------------------------------------------- state

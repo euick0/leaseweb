@@ -120,7 +120,7 @@ a.kpi:hover { border-color: var(--ink); text-decoration: none; color: var(--ink)
 .kpi.red .kpi-v { color: var(--red); } .kpi.green .kpi-v { color: var(--green); }
 
 /* service map */
-.mapcard { background: var(--ink); color: var(--paper); border: 0; border-radius: 16px; padding: 20px; display: grid; gap: 16px; }
+.mapcard { background: var(--ink); color: var(--paper); border: 0; border-radius: 16px; padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .map-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .map-top > div:first-child { flex: 1 1 320px; }
 .map-top h2 { margin: 0 0 2px; font-size: 20px; line-height: 28px; }
