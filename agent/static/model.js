@@ -98,6 +98,17 @@ export function actionLabel(item) {
   return item.decision?.action === "mitigate" ? "Approve gateway rule" : "Approve patch";
 }
 
+/**
+ * Which run the board shows. `follow` is the newest run id when the viewer triggered an
+ * advisory (0 when there was none): the board jumps to the first run newer than that.
+ */
+export function pickRun(runs, selectedRun, follow) {
+  const newest = runs[0]?.id ?? null;
+  if (follow !== null && newest !== null && newest > follow) return { selectedRun: newest, follow: null };
+  if (selectedRun === null || !runs.some((r) => r.id === selectedRun)) return { selectedRun: newest, follow };
+  return { selectedRun, follow };
+}
+
 const SUMMARY_WORDS = [
   ["done", "safe"], ["awaiting_approval", "needs you"], ["escalated", "needs a human"], ["queued", "queued"],
   ["blocked", "refused"], ["failed", "failed"], ["rolled_back", "rolled back"],

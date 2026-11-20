@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  esc, stripColour, buildBoard, routeStages, verdictFor, idleVerdict, actionLabel, ticketSummary,
+  esc, stripColour, buildBoard, routeStages, verdictFor, idleVerdict, actionLabel, ticketSummary, pickRun,
 } from "../../agent/static/model.js";
 
 const wl = (name, target, extra = {}) => ({ id: `${target}/shop/${name}`, name, target, probes: [], ...extra });
@@ -132,4 +132,22 @@ test("ticketSummary counts outcomes in plain words", () => {
   assert.equal(ticketSummary({ items: [{ status: "done" }, { status: "queued" }] }), "1 safe, 1 queued");
   assert.equal(ticketSummary({ items: [] }), "Working");
   assert.equal(ticketSummary({ items: [{ status: "awaiting_approval" }, { status: "blocked" }] }), "1 needs you, 1 refused");
+});
+
+const runs = (...ids) => ids.map((id) => ({ id }));
+
+test("pickRun shows the newest run when nothing is selected or the selection is gone", () => {
+  assert.deepEqual(pickRun(runs(2, 1), null, null), { selectedRun: 2, follow: null });
+  assert.deepEqual(pickRun(runs(2, 1), 9, null), { selectedRun: 2, follow: null });
+  assert.deepEqual(pickRun([], null, null), { selectedRun: null, follow: null });
+});
+
+test("pickRun keeps a run the viewer picked", () => {
+  assert.deepEqual(pickRun(runs(2, 1), 1, null), { selectedRun: 1, follow: null });
+});
+
+test("pickRun waits for the run a just-triggered advisory creates, then jumps to it", () => {
+  assert.deepEqual(pickRun(runs(3, 2, 1), 3, 3), { selectedRun: 3, follow: 3 });
+  assert.deepEqual(pickRun(runs(4, 3, 2, 1), 3, 3), { selectedRun: 4, follow: null });
+  assert.deepEqual(pickRun(runs(1), null, 0), { selectedRun: 1, follow: null });
 });
