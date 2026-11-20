@@ -17,7 +17,7 @@ import yaml
 
 from .base import DriverError
 
-AUTHOR = ["-c", "user.name=PatchPilot", "-c", "user.email=patchpilot@localhost"]
+AUTHOR = ["-c", "user.name=Lighthouse", "-c", "user.email=lighthouse@localhost"]
 SYNC_EVERY = 300.0       # seconds between fetches when only reading pins
 
 
@@ -105,8 +105,8 @@ class GitSource:
     # ------------------------------------------------------------ reads
 
     def config(self) -> dict:
-        """Optional per-repository settings in .patchpilot.yaml."""
-        path = self.path / ".patchpilot.yaml"
+        """Optional per-repository settings in .lighthouse.yaml."""
+        path = self.path / ".lighthouse.yaml"
         if not path.exists():
             return {}
         return yaml.safe_load(path.read_text()) or {}

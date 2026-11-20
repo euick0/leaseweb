@@ -1,6 +1,6 @@
 """Auth piece: who is calling the API, and may they change things.
 
-  token  bearer tokens, one per person (the default). From patchpilot.yaml
+  token  bearer tokens, one per person (the default). From lighthouse.yaml
          `auth: {kind: token, tokens: {alice: "${PP_TOKEN_ALICE}"}}` and/or the
          environment: PP_API_TOKENS=eric:<token>,maria:<token>, or
          PP_API_TOKEN=<token> (recorded as "operator"). With none of them, a
@@ -94,7 +94,7 @@ class ProxyAuth:
         return (headers.get(self.header) or "").strip() or None
 
     def check(self) -> list[tuple[bool, str]]:
-        return [(True, f"user taken from the {self.header} header: only expose PatchPilot through the SSO proxy")]
+        return [(True, f"user taken from the {self.header} header: only expose Lighthouse through the SSO proxy")]
 
 
 BUILTIN = {"none": NoAuth, "token": TokenAuth, "proxy": ProxyAuth}

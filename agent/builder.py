@@ -27,7 +27,7 @@ class Builder:
         return self._docker
 
     def push_name(self, image: str) -> str:
-        """In-cluster image name -> the name PatchPilot can reach from the host."""
+        """In-cluster image name -> the name Lighthouse can reach from the host."""
         if self.pull_prefix and self.push_prefix and image.startswith(self.pull_prefix + "/"):
             return self.push_prefix + image[len(self.pull_prefix):]
         return image

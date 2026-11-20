@@ -1,11 +1,11 @@
-# PatchPilot — hackathon plan
+# Lighthouse — hackathon plan
 
 InfraHack: AI for Cloud Infrastructure.
 Constraints: 4 people, about 10 hours, open-source components only, hackathon servers with 128 GB RAM.
 
 ## One-line pitch
 
-A company with 300 repositories on three clouds gets one advisory. PatchPilot finds every running workload that carries the package, works out which ones can actually be exploited where they run, checks that the fix itself is not poisoned, rolls it out per workload (or shields the app when no fix exists), and **proves** each result by re-running the exploit — the same way on AWS, Google Cloud or a European cloud, with every decision made by an open model on your own hardware.
+A company with 300 repositories on three clouds gets one advisory. Lighthouse finds every running workload that carries the package, works out which ones can actually be exploited where they run, checks that the fix itself is not poisoned, rolls it out per workload (or shields the app when no fix exists), and **proves** each result by re-running the exploit — the same way on AWS, Google Cloud or a European cloud, with every decision made by an open model on your own hardware.
 
 ## Who it is for
 
@@ -15,7 +15,7 @@ Three consequences for the design:
 
 1. **The unit of work is the fleet, not the app.** One advisory in, a ranked list of affected workloads out, each with its own verdict and its own rollout.
 2. **Nothing may be specific to one codebase, one language or one cloud.** Everything that touches a repository, a package ecosystem or a deployment target sits behind a small driver interface.
-3. **No cloud is privileged.** PatchPilot talks to clouds through open, portable layers (the Kubernetes API, OpenTofu state, OCI images), so a hyperscaler and a European provider are the same kind of target. PatchPilot itself runs anywhere, including fully inside a sovereign environment.
+3. **No cloud is privileged.** Lighthouse talks to clouds through open, portable layers (the Kubernetes API, OpenTofu state, OCI images), so a hyperscaler and a European provider are the same kind of target. Lighthouse itself runs anywhere, including fully inside a sovereign environment.
 
 ## What makes it different
 
@@ -23,7 +23,7 @@ Scanning and version-bump bots already exist (Trivy, Dependabot, Renovate). Thes
 
 1. **Proof, not scores.** Every action is bracketed by a safe exploit check: VULNERABLE before, SAFE after.
 2. **Same CVE, different verdict per workload.** The internet-facing service is patched now; the internal batch job with the same library is queued, with the reason written down. Prioritisation comes from where and how the workload runs, not from the CVSS score.
-3. **It does not trust the fix either.** An agent that auto-installs updates is an ideal delivery vehicle for a supply-chain attack. Before any dependency bump, PatchPilot diffs the old and new versions of that dependency and reviews what changed. A package version is vetted once and the verdict is reused across every repository that needs it.
+3. **It does not trust the fix either.** An agent that auto-installs updates is an ideal delivery vehicle for a supply-chain attack. Before any dependency bump, Lighthouse diffs the old and new versions of that dependency and reviews what changed. A package version is vetted once and the verdict is reused across every repository that needs it.
 4. **AI proposes, deterministic checks dispose.** The LLM never touches production directly. Its output passes schema validation, a policy gate, `nginx -t`, a canary and the exploit check.
 5. **Cloud-neutral and sovereign by construction.** Open-source tools, an open-weight model, a local feed, no external API. The clouds are targets, never dependencies.
 
@@ -31,7 +31,7 @@ Scanning and version-bump bots already exist (Trivy, Dependabot, Renovate). Thes
 
 Coverage comes from three portable layers rather than one integration per provider:
 
-| Layer | What PatchPilot gets from it | Covers |
+| Layer | What Lighthouse gets from it | Covers |
 |-------|------------------------------|--------|
 | Kubernetes API | Workloads, images, exposure (Service / Ingress / Gateway), rollout, rollback. Provider and region from `node.spec.providerID` and topology labels | Any conformant cluster |
 | OCI image + labels | SBOM of what is really running; `org.opencontainers.image.source` links the image back to its repository | Any registry |
@@ -61,7 +61,7 @@ Four small Python protocols. The core pipeline only sees these. Agreeing them in
 | `Target` | `list_workloads()`, `exposure(workload)`, `deploy_canary()`, `promote()`, `rollback()`, `apply_mitigation()` | Kubernetes; Compose | Nomad, cloud-native deploy APIs |
 | `Probe` | `check(url) → VULNERABLE or SAFE` | One per demo advisory | Nuclei templates as a probe source |
 
-Configuration: one `fleet.yaml` lists sources and targets (kubeconfig contexts). A repository may carry an optional `.patchpilot.yaml` (health path, policy overrides); without it, defaults apply. No per-repository setup is required to be discovered.
+Configuration: one `fleet.yaml` lists sources and targets (kubeconfig contexts). A repository may carry an optional `.lighthouse.yaml` (health path, policy overrides); without it, defaults apply. No per-repository setup is required to be discovered.
 
 Deployment shape: for the hackathon everything runs in one process with several kubeconfig contexts. For a real company the same `Target` driver runs as a small runner inside each cluster or account and dials out to the control plane, so no inbound access or central cloud credentials are needed. This is a slide, not code.
 
@@ -102,7 +102,7 @@ Note on the model: Llama 3.1 ships under Meta's community licence, which is not 
 ## Architecture
 
 ```
-            ┌───────────────────────── PatchPilot (one process) ─────────────────────────┐
+            ┌───────────────────────── Lighthouse (one process) ─────────────────────────┐
  browser ─► │ core pipeline: discover → inventory → match → triage → rank → vet → gate → act │
             │   ├─ syft ─────► SBOM per image        ├─ ollama ──► triage JSON, diff review   │
             │   ├─ feed/ ────► advisories (OSV)      ├─ policy.yaml ► auto | approve | block  │
@@ -178,7 +178,7 @@ Limits to state openly in the talk: this is a tripwire, not a proof. A reviewer 
 | `zeroday` | Same advisory, now with no trusted fix | Approval requested, nginx rule applied to the `billing-py` gateway, probe blocked with 403 |
 | `badupdate` | Mock fix whose build fails `/health` | Canary fails, automatic rollback, old version still serving |
 
-`trojan` followed by `zeroday` is one story: the fix is poisoned, so PatchPilot refuses it and shields the service instead.
+`trojan` followed by `zeroday` is one story: the fix is poisoned, so Lighthouse refuses it and shields the service instead.
 
 `acme-authutils` is a tiny Python library written for the demo. Version 1.0.0 has a real but harmless flaw: a header value is used in a file path without checking for `..`. A script builds 1.0.0 and the tampered 1.0.1 into `artifacts/`. Because it is small, the diff fits in one LLM call and the result is reliable on stage. Its backdoor would only contact the local `callback` listener, and it is never built into an image or run.
 

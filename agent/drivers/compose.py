@@ -5,7 +5,7 @@ not ready by hour 3). Talks to the Docker API only.
 Facts come from the containers:
   workloads    containers of the project, by com.docker.compose.service
   exposure     published ports bound to a non-loopback address, directly or
-               through a gateway container labelled patchpilot.io/gateway-for
+               through a gateway container labelled lighthouse.io/gateway-for
   provider     from fleet.yaml (a Docker host has no provider metadata)
 
 Promote starts the new container with the service name as network alias and
@@ -29,10 +29,10 @@ from .http import get
 
 PROJECT = "com.docker.compose.project"
 SERVICE = "com.docker.compose.service"
-ROLE = "patchpilot.io/role"
-GATEWAY_FOR = "patchpilot.io/gateway-for"
-PORT = "patchpilot.io/port"
-CANARY_OF = "patchpilot.io/canary-of"
+ROLE = "lighthouse.io/role"
+GATEWAY_FOR = "lighthouse.io/gateway-for"
+PORT = "lighthouse.io/port"
+CANARY_OF = "lighthouse.io/canary-of"
 MITIGATIONS = "/etc/nginx/pp/mitigations"
 
 
@@ -162,7 +162,7 @@ class ComposeTarget:
                 internet_exposed=how is not None,
                 exposure=how or "no published port: reachable only on the project network",
                 gateway=gw.labels.get(SERVICE) if gw else None,
-                health_path=c.labels.get("patchpilot.io/health", "/health")))
+                health_path=c.labels.get("lighthouse.io/health", "/health")))
         return out
 
     def http(self, wl: Workload, path: str, headers: Optional[dict] = None,

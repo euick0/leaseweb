@@ -1,4 +1,4 @@
-"""PatchPilot API and dashboard.
+"""Lighthouse API and dashboard.
 
   uv run uvicorn agent.main:app --host 127.0.0.1 --port 8000
 
@@ -64,7 +64,7 @@ async def lifespan(_app: FastAPI):
     watcher.join(timeout=30)
 
 
-app = FastAPI(title="PatchPilot", lifespan=lifespan)
+app = FastAPI(title="Lighthouse", lifespan=lifespan)
 api = APIRouter(prefix="/api", dependencies=[Depends(auth.require)])
 
 
