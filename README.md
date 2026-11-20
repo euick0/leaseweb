@@ -132,3 +132,7 @@ All but `anthropic` use plain HTTP chat completions (`agent/providers.py`), so n
 | `scenarios/` | advisories: `log4shell`, `trojan`, `zeroday`, `badupdate` |
 | `acme-libs/` | demo libraries, including the backdoored `acme-authutils` 1.0.1 (never installed) |
 | `deploy/` | Kubernetes manifests and Compose files |
+
+## License
+
+Apache License 2.0, see `LICENSE`. Free for commercial and non-commercial use.
