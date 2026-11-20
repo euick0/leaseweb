@@ -8,13 +8,10 @@ The dashboard (agent/static) only reads the decision log and posts approvals.
 
 Every /api route goes through the auth piece (agent/auth.py, bearer tokens by
 default); the user is recorded on every approval, and actions that change
-something go to the audit log. Publishing a scenario and wiping the decision
-log are demo controls: they exist only with PP_DEMO=1.
+something go to the audit log.
 """
 from __future__ import annotations
 
-import json
-import shutil
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -68,11 +65,6 @@ app = FastAPI(title="LightHouse", lifespan=lifespan)
 api = APIRouter(prefix="/api", dependencies=[Depends(auth.require)])
 
 
-def _demo_only() -> None:
-    if not config.DEMO:
-        raise HTTPException(404, "demo controls are off (start the agent with PP_DEMO=1)")
-
-
 @api.get("/me")
 def me(request: Request):
     user = request.state.user
@@ -94,7 +86,7 @@ def get_fleet(refresh: bool = False):
     latest = {}
     for p in db.latest_probes():
         latest.setdefault(p["workload_id"], []).append(p)
-    return {"llm": llm.status(), "demo": config.DEMO,
+    return {"llm": llm.status(),
             "environments": fl.environments(),
             "workloads": [{**w.model_dump(), "probes": latest.get(w.id, [])} for w in workloads]}
 
@@ -104,7 +96,7 @@ def probe_all(actor: str = Depends(auth.act)):
     """Run every relevant probe on every workload's live path."""
     db.audit(actor, "probe", "fleet")
     fl = fleet.get()
-    advisories = _scenarios() + feed.list_feed()
+    advisories = feed.list_feed()
     out = []
     for wl in fl.discover(max_age=0):
         for name in pipeline.probes_for(fl, wl, advisories):
@@ -118,7 +110,7 @@ def probe_all(actor: str = Depends(auth.act)):
 
 @api.get("/runs")
 def runs():
-    severity = {a["id"]: feed.advisory_severity(a) for a in _scenarios() + feed.list_feed()}
+    severity = {a["id"]: feed.advisory_severity(a) for a in feed.list_feed()}
     out = []
     for r in db.list_runs():
         its = db.items(r["id"])
@@ -163,48 +155,6 @@ def add_advisory(advisory_id: str, actor: str = Depends(auth.act)):
     feeds.publish([adv])
     db.audit(actor, "trigger", adv["id"], f"added {advisory_id} from OSV")
     return {"ok": True, "advisory": adv["id"]}
-
-
-# --------------------------------------------------------------- scenarios
-
-def _scenarios() -> list[dict]:
-    return [feed.load(p) for p in sorted(config.SCENARIOS_DIR.glob("*.json"))]
-
-
-@api.get("/scenarios")
-def scenarios():
-    if not config.DEMO:
-        return []
-    seen = {r["advisory_id"] for r in db.list_runs()}
-    return [{"name": p.stem, "id": json.loads(p.read_text())["id"],
-             "title": feed.title(json.loads(p.read_text())), "summary": json.loads(p.read_text()).get("summary"),
-             "triggered": json.loads(p.read_text())["id"] in seen}
-            for p in sorted(config.SCENARIOS_DIR.glob("*.json"))]
-
-
-@api.post("/scenarios/{name}", dependencies=[Depends(_demo_only)])
-def trigger(name: str, actor: str = Depends(auth.act)):
-    """Publish a scenario's advisory into the feed, as if it had just arrived."""
-    src = config.SCENARIOS_DIR / f"{name}.json"
-    if not src.exists() or "/" in name:
-        raise HTTPException(404, "no such scenario")
-    shutil.copy(src, config.FEED_DIR / src.name)
-    db.audit(actor, "trigger", name, "demo scenario")
-    return {"ok": True, "advisory": json.loads(src.read_text())["id"]}
-
-
-@api.post("/reset", dependencies=[Depends(_demo_only)])
-def reset(actor: str = Depends(auth.act)):
-    """Forget every run, probe and vet verdict (called by scripts/reset_demo.sh
-    after it has restored the fleet). The LLM answer cache and the audit log are kept."""
-    db.audit(actor, "reset", "decision log")
-    with _run_lock:
-        for f in config.FEED_DIR.glob("*.json"):
-            f.unlink()
-        db.clear()
-        pipeline.forget_sboms()
-        fleet.get().discover(max_age=0)
-    return {"ok": True}
 
 
 # --------------------------------------------------------------- dashboard

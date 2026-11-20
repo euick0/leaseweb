@@ -9,7 +9,7 @@ A fix pins `name==version` where the package is declared (requirements, then
 pyproject); a transitive package is pinned in requirements.txt. A lock file is
 refreshed with its own tool (uv / poetry) when that tool is installed.
 
-Vendored layout (the offline demo): requirements.txt plus the wheels in
+Vendored layout (offline, pre-vendored): requirements.txt plus the wheels in
 `wheels/`, installed with `pip install --no-index --find-links wheels`.
 
 Releases are vetted from artifacts/pypi/<name>/<version>/ (wheel = what ships,

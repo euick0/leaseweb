@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.6.0",
+  "id": "PPSA-2026-0021",
+  "aliases": ["CVE-2026-55021"],
+  "summary": "Session forgery in meridian-auth verify_session()",
+  "details": "meridian-auth before 1.0.1 only checks a session token's HMAC signature when the token carries one. A token with an empty signature is accepted unverified, so an attacker can mint a session with any claims -- including role=admin -- without knowing the service secret. Services that read the role from the session, such as the Meridian customer portal, grant the admin console to a forged session. Fixed in 1.0.1, which rejects any token without a valid signature.",
+  "affected": [
+    {
+      "package": {"ecosystem": "PyPI", "name": "meridian-auth"},
+      "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "1.0.1"}]}]
+    }
+  ],
+  "database_specific": {
+    "severity": "CRITICAL",
+    "lighthouse": {
+      "grep": ["meridian_auth", "verify_session"],
+      "probe": "session-forge",
+      "review_focus": ["session.py"],
+      "mitigation": {"pattern": "session=", "fields": ["cookie:session"]}
+    }
+  }
+}

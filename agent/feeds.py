@@ -3,7 +3,7 @@ feed/, which the watcher in agent/main.py already runs the pipeline on, so a
 new source of advisories never touches the pipeline.
 
   feed:
-    kind: files                  # only what is dropped into feed/ (the default; demo scenarios)
+    kind: files                  # only what is dropped into feed/ (the default)
 
   feed:
     kind: osv                    # ask api.osv.dev about every package the fleet runs

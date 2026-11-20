@@ -64,7 +64,7 @@ class BuildError(RuntimeError):
 
 
 def _registry_labels(image: str) -> dict:
-    """Labels via the OCI distribution API (anonymous registry, as in the demo)."""
+    """Labels via the OCI distribution API (anonymous registry)."""
     host, _, rest = image.partition("/")
     repo, _, tag = rest.rpartition(":") if ":" in rest else (rest, "", "latest")
     accept = "application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json"

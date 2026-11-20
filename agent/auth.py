@@ -8,10 +8,10 @@
   proxy  trust a header set by an SSO proxy in front (oauth2-proxy, Cloudflare
          Access, an ingress with OIDC):  auth: {kind: proxy, header: X-Forwarded-Email}
   none   no login: everyone is "anonymous". Only when asked for explicitly
-         (a laptop demo); the default stays closed.
+         (a single-user laptop run); the default stays closed.
 
-`approvers` (optional, any kind) lists who may approve, reject, trigger and
-reset; everyone who can log in may read. `admins` (optional) lists who may
+`approvers` (optional, any kind) lists who may approve, reject and add an
+advisory; everyone who can log in may read. `admins` (optional) lists who may
 change settings in the dashboard (models, policy, scope); without it, the
 approvers may. A custom piece is a class with
 `identify(headers) -> Optional[str]` and a `kind` attribute.

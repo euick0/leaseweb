@@ -13,7 +13,7 @@ go in `.env`, referenced as ${NAME}):
 
 Any slot also takes a custom piece by dotted path, `kind: "my_module:MyClass"`,
 loaded from the workspace or `plugins/`. Without a lighthouse.yaml every slot
-falls back to the self-contained demo behaviour.
+falls back to its self-contained default behaviour.
 
 `python -m agent.doctor` shows which pieces are in place and which are missing.
 """

@@ -4,7 +4,7 @@
             from the poms; a fix edits the version where it is defined (see pom.py)
             and the Dockerfile's `mvn package` fetches the vetted release.
   vendored  `vendor.txt` pins `group:artifact version` and `lib/` holds the jars,
-            compiled with plain javac (the offline demo services).
+            compiled with plain javac (offline, pre-vendored services).
 
 Releases are vetted from artifacts/maven/<artifact>/<version>/ (binary +
 sources jar), filled from Maven Central or a mirror by agent/registry.py.

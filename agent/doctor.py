@@ -110,7 +110,7 @@ def main() -> int:
     if config.SETTINGS_FILE.exists():
         r.line(True, "company settings loaded")
     else:
-        r.line(True, "no lighthouse.yaml: demo defaults (copy lighthouse.example.yaml to start)")
+        r.line(True, "no lighthouse.yaml: built-in defaults (copy lighthouse.example.yaml to start)")
     gaps = settings.missing_vars(raw)
     r.line(not gaps, "every ${SECRET} is set" if not gaps else "fill in (in .env or the environment): " + ", ".join(gaps))
 

@@ -85,7 +85,7 @@
             <section aria-labelledby="mode-h"><div class="sec-head"><h2 id="mode-h">Answers</h2></div>
               <div class="choice" id="modes">
                 <label><input type="radio" name="mode" value="live" class="admin"><span><b>Live</b><span class="small">Ask the model. Use an earlier answer only if it doesn't respond.</span></span></label>
-                <label><input type="radio" name="mode" value="cache" class="admin"><span><b>Cached answers only</b><span class="small">Never call a model. A safety net for demos and outages.</span></span></label>
+                <label><input type="radio" name="mode" value="cache" class="admin"><span><b>Cached answers only</b><span class="small">Never call a model. A safety net for staging and outages.</span></span></label>
               </div></section>
           </div>
 
@@ -422,7 +422,7 @@ async function loadSystem() {
       <dt>Tools</dt><dd><span>${Object.entries(s.tools).map(([t, ok]) => chip(ok ? "c-green" : "c-grey", t, ok ? "Installed" : "Not installed")).join(" ")}</span></dd>
     </dl></section>
     <section><h2>LightHouse</h2><dl class="facts">
-      <dt>Process</dt><dd>pid ${a.pid}, up for ${dur(a.uptime)}${a.demo ? `<span>${chip("c-amber", "Demo controls on")}</span>` : ""}</dd>
+      <dt>Process</dt><dd>pid ${a.pid}, up for ${dur(a.uptime)}</dd>
       <dt>Working now</dt><dd><span>${a.rollout_in_progress ? chip("c-blue", "Rollout in progress") : a.runs_in_progress ? chip("c-blue", `${plural(a.runs_in_progress, "run")} in progress`) : chip("c-grey", "Idle")}</span></dd>
       <dt>Workers</dt><dd><span>${a.workers.map((w) => chip("c-green", w.replace("pp-", ""))).join(" ") || chip("c-amber", "None running")}</span></dd>
       <dt>Decisions so far</dt><dd>${esc(items)}</dd>

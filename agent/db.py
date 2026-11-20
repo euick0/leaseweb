@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS vet_cache (
     result  TEXT NOT NULL,
     ts      REAL NOT NULL
 );
-CREATE TABLE IF NOT EXISTS audit (      -- who did what; never cleared by a demo reset
+CREATE TABLE IF NOT EXISTS audit (      -- who did what; kept across a decision-log clear
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
     ts      REAL NOT NULL,
     actor   TEXT NOT NULL,
@@ -105,7 +105,7 @@ def reset_connection() -> None:
 
 
 def clear() -> None:
-    """Empty every table (reset_demo.sh). The schema stays."""
+    """Empty every decision-log table. The audit log and the schema stay."""
     with _lock:
         for table in ("runs", "items", "events", "probes", "vet_cache"):
             conn().execute(f"DELETE FROM {table}")

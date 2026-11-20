@@ -350,7 +350,7 @@ def system():
                  "python": platform.python_version(), "cpus": os.cpu_count(), "load": load,
                  "memory": _memory(), "disk": {"total": disk.total, "free": disk.free},
                  "uptime": _host_uptime()},
-        "agent": {"pid": os.getpid(), "uptime": time.time() - STARTED, "demo": config.DEMO,
+        "agent": {"pid": os.getpid(), "uptime": time.time() - STARTED,
                   "auth": auth.get().piece.kind, "llm": llm.status(),
                   "workers": sorted({t.name for t in threading.enumerate() if t.name.startswith("pp-")}),
                   "rollout_in_progress": pipeline._action_lock.locked(),
