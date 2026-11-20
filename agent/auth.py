@@ -94,7 +94,7 @@ class ProxyAuth:
         return (headers.get(self.header) or "").strip() or None
 
     def check(self) -> list[tuple[bool, str]]:
-        return [(True, f"user taken from the {self.header} header: only expose Lighthouse through the SSO proxy")]
+        return [(True, f"user taken from the {self.header} header: only expose LightHouse through the SSO proxy")]
 
 
 BUILTIN = {"none": NoAuth, "token": TokenAuth, "proxy": ProxyAuth}

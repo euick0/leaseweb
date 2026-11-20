@@ -1,4 +1,4 @@
-# Lighthouse company settings: the puzzle pieces.
+# LightHouse company settings: the puzzle pieces.
 #
 #   1. cp lighthouse.example.yaml lighthouse.yaml   and fill in the blanks marked FILL IN
 #   2. cp .env.example .env                         and put the secrets there (never commit .env)
@@ -37,10 +37,10 @@ forge:
   token: ${GITHUB_TOKEN}                               # FILL IN in .env (scope: repo / api)
   # api_url: https://github.example.com/api/v3         # GitHub Enterprise / self-hosted GitLab
   labels: [security, lighthouse]
-  author_name: Lighthouse
+  author_name: LightHouse
   author_email: lighthouse@example.com                 # FILL IN
-  # true : Lighthouse rolls the verified fix out (canary -> promote) and opens the PR as the record
-  # false: Lighthouse verifies on a canary, opens the PR, and your CI/CD deploys on merge
+  # true : LightHouse rolls the verified fix out (canary -> promote) and opens the PR as the record
+  # false: LightHouse verifies on a canary, opens the PR, and your CI/CD deploys on merge
   deploy: false
 
 # ------------------------------------------------------ where advisories come from

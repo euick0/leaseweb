@@ -1,4 +1,4 @@
-/* Lighthouse: ink, paper, beam, amber. Status colours (red, green, blue) are only used for status. */
+/* LightHouse: ink, paper, beam, amber. Status colours (red, green, blue) are only used for status. */
 :root {
   --ink: #12120F; --paper: #F1EFE7; --beam: #FFD23F; --amber: #7A5A00;
   --bg: var(--paper); --panel: #FBFAF6; --line: #DDD8C9; --line-soft: #ECE8DC; --muted: #5E5A4E; --text-2: #4A473D;

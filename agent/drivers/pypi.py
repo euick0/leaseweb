@@ -267,11 +267,11 @@ def _pin(repo: Path, name: str, version: str) -> list[str]:
         req = repo / "requirements.txt"
         if req.exists():
             text = req.read_text(encoding="utf-8")
-            req.write_text(text.rstrip("\n") + f"\n{name}=={version}  # Lighthouse: pinned to the vetted fix\n",
+            req.write_text(text.rstrip("\n") + f"\n{name}=={version}  # LightHouse: pinned to the vetted fix\n",
                            encoding="utf-8")
             changed.append("requirements.txt")
         elif not (repo / "uv.lock").exists() and not (repo / "poetry.lock").exists():
-            raise DriverError(f"{name} is not declared anywhere Lighthouse can pin it (no requirements.txt)")
+            raise DriverError(f"{name} is not declared anywhere LightHouse can pin it (no requirements.txt)")
 
     changed += _relock(repo, name, version)
     return changed
