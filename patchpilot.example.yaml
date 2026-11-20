@@ -70,6 +70,18 @@ notify:
   #   url: https://hooks.example.com/patchpilot
   #   headers: {Authorization: "Bearer ${HOOK_TOKEN}"}
 
+# ------------------------------------------------- where fixed releases come from
+# Every release is downloaded, checked against the checksum the registry publishes
+# (Maven .sha256/.sha1, PyPI's sha256, Go's checksum database) and recorded in
+# checksums.lock before it is vetted. Defaults are the public registries; point
+# them at your mirror (Nexus, Artifactory, devpi, Athens) if you have one.
+# registries:
+#   maven: https://nexus.example.com/repository/maven-public
+#   pypi: https://pypi.org
+#   go_proxy: https://proxy.golang.org
+#   go_sumdb: https://sum.golang.org
+#   headers: {Authorization: "Bearer ${REGISTRY_TOKEN}"}
+
 # ---------------------------------------------------------------------- the model
 # One provider, or a fallback chain tried in order. Keys go in .env.
 # ollama (your own hardware) | openai | anthropic | gemini | deepseek | kimi | mistral | openai-compatible

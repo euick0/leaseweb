@@ -14,7 +14,7 @@ from .drivers.base import Ecosystem
 from .feed import normalise
 from .schemas import Component
 
-SYFT_TYPES = {"java-archive": "maven", "jenkins-plugin": "maven", "python": "pypi"}
+SYFT_TYPES = {"java-archive": "maven", "jenkins-plugin": "maven", "python": "pypi", "go-module": "go"}
 
 
 def parse_syft(doc: dict) -> list[Component]:
@@ -27,9 +27,14 @@ def parse_syft(doc: dict) -> list[Component]:
         group = None
         if purl.startswith("pkg:maven/"):
             group = purl[len("pkg:maven/"):].split("/")[0]
+        version = art.get("version") or ""
+        if eco == "go":
+            if not version.startswith("v") or art["name"] == "stdlib":
+                continue                      # the main module "(devel)" and the Go toolchain itself
+            version = version[1:]             # OSV writes Go versions without the "v"
         locs = art.get("locations") or [{}]
         comps.append(Component(ecosystem=eco, group=group, name=normalise(eco, art["name"]),
-                               version=art["version"], purl=purl or None, path=locs[0].get("path")))
+                               version=version, purl=purl or None, path=locs[0].get("path")))
     return _dedupe(comps)
 
 

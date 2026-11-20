@@ -1,9 +1,13 @@
-"""Java / Maven ecosystem driver.
+"""Java / Maven ecosystem driver. Two repository layouts:
 
-A Java repository vendors its dependencies: `vendor.txt` pins
-`group:artifact version` and `lib/` holds the matching jars, which the
-Dockerfile compiles against with plain javac (no Maven, no network).
-The upstream is artifacts/maven/<artifact>/<version>/ (binary + sources jar).
+  pom.xml   a normal Maven build (single or multi-module). Dependencies are read
+            from the poms; a fix edits the version where it is defined (see pom.py)
+            and the Dockerfile's `mvn package` fetches the vetted release.
+  vendored  `vendor.txt` pins `group:artifact version` and `lib/` holds the jars,
+            compiled with plain javac (the offline demo services).
+
+Releases are vetted from artifacts/maven/<artifact>/<version>/ (binary +
+sources jar), filled from Maven Central or a mirror by agent/registry.py.
 """
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ from pathlib import Path
 
 from .. import config
 from ..schemas import Component
+from . import pom
 from .base import Sensitive
 
 
@@ -35,13 +40,23 @@ class MavenEcosystem:
     # ------------------------------------------------------------ repository
 
     def detect(self, repo: Path) -> bool:
+        return self._vendored(repo) or (repo / "pom.xml").exists()
+
+    @staticmethod
+    def _vendored(repo: Path) -> bool:
         return (repo / "vendor.txt").exists() or any((repo / "lib").glob("*.jar"))
 
     def components(self, repo: Path) -> list[Component]:
-        return [read_jar(j) for j in sorted((repo / "lib").glob("*.jar"))]
+        if self._vendored(repo):
+            return [read_jar(j) for j in sorted((repo / "lib").glob("*.jar"))]
+        return pom.components(repo)
 
     def bump(self, repo: Path, comp: Component, version: str) -> list[str]:
-        """Swap the vendored jar for the vetted one and update the pin."""
+        """pom.xml: change the version where it is defined. Vendored: swap the jar and the pin."""
+        if not self._vendored(repo):
+            if not comp.group:
+                raise ValueError(f"{comp.name}: no groupId, cannot find it in pom.xml")
+            return pom.bump(repo, comp.group, comp.name, version, current=comp.version)
         new_jar, _ = self.artifacts(comp.name, version)
         lib = repo / "lib"
         changed = []
@@ -59,6 +74,13 @@ class MavenEcosystem:
             pins.write_text("\n".join(lines) + "\n")
             changed.append("vendor.txt")
         return changed
+
+    def lockstep(self, repo: Path, comp: Component, version: str) -> list[tuple[str, str]]:
+        """(coordinate, version) of the artifacts released together with comp: they share
+        its version property, so they move to the same version and are vetted too."""
+        if self._vendored(repo) or not comp.group:
+            return []
+        return sorted((f"{g}:{a}", version) for g, a in pom.lockstep(repo, comp.group, comp.name))
 
     def grep_terms(self, comp: Component) -> list[str]:
         return [comp.group] if comp.group else [comp.name]

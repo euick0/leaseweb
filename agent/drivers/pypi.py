@@ -1,27 +1,48 @@
 """Python / PyPI ecosystem driver.
 
-A Python repository pins `name==version` in requirements.txt and vendors the
-matching wheels in `wheels/`; the Dockerfile installs with
-`pip install --no-index --find-links wheels`. The upstream is
-artifacts/pypi/<name>/<version>/ (wheel = what ships, sdist = the source).
+What a repository pins, in order of precision:
+  lock files   poetry.lock, uv.lock, Pipfile.lock: every installed package, transitive too
+  requirements requirements*.txt (test/dev/doc/lint files skipped): `name==version`
+  pyproject    [project] dependencies pinned with ==
+
+A fix pins `name==version` where the package is declared (requirements, then
+pyproject); a transitive package is pinned in requirements.txt. A lock file is
+refreshed with its own tool (uv / poetry) when that tool is installed.
+
+Vendored layout (the offline demo): requirements.txt plus the wheels in
+`wheels/`, installed with `pip install --no-index --find-links wheels`.
+
+Releases are vetted from artifacts/pypi/<name>/<version>/ (wheel = what ships,
+sdist = the source), filled from PyPI or a mirror by agent/registry.py.
 """
 from __future__ import annotations
 
 import ast
 import email.parser
+import json
 import re
 import shutil
+import subprocess
 import tarfile
+import tomllib
 import zipfile
 from pathlib import Path
 
 from .. import config
 from ..feed import normalise
 from ..schemas import Component
-from .base import Sensitive
+from .base import DriverError, Sensitive
 
 _PIN = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*==\s*([^\s;#]+)")
+_REQ = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)(\[[^\]]*\])?\s*(?:[<>=!~]=?[^;#]*)?")
 _SOURCE_FILES = (".py", "pyproject.toml", "setup.cfg")
+_SKIP_REQ = re.compile(r"(test|dev|doc|lint|ci)", re.I)
+
+
+def requirement_files(repo: Path) -> list[Path]:
+    """requirements*.txt at the root and in requirements/, runtime ones only."""
+    files = list(repo.glob("requirements*.txt")) + list((repo / "requirements").glob("*.txt"))
+    return sorted(p for p in files if not _SKIP_REQ.search(p.name))
 
 
 class PypiEcosystem:
@@ -39,20 +60,38 @@ class PypiEcosystem:
     # ------------------------------------------------------------ repository
 
     def detect(self, repo: Path) -> bool:
-        return (repo / "requirements.txt").exists()
+        return bool(requirement_files(repo)) or any((repo / f).exists() for f in (
+            "pyproject.toml", "poetry.lock", "uv.lock", "Pipfile.lock"))
 
     def components(self, repo: Path) -> list[Component]:
-        out = []
-        for line in (repo / "requirements.txt").read_text().splitlines():
-            m = _PIN.match(line)
-            if m:
-                name, version = normalise("pypi", m.group(1)), m.group(2)
+        """Lock file if there is one (it has the transitive packages too), else the pins."""
+        locked = _lock_components(repo)
+        if locked:
+            return locked
+        out, seen = [], set()
+
+        def add(name: str, version: str, where: str):
+            name = normalise("pypi", name)
+            if (name, version) not in seen:
+                seen.add((name, version))
                 out.append(Component(ecosystem="pypi", name=name, version=version,
-                                     purl=f"pkg:pypi/{name}@{version}", path="requirements.txt"))
+                                     purl=f"pkg:pypi/{name}@{version}", path=where))
+
+        for req in requirement_files(repo):
+            for line in req.read_text(encoding="utf-8", errors="replace").splitlines():
+                m = _PIN.match(line)
+                if m:
+                    add(m.group(1), m.group(2), req.relative_to(repo).as_posix())
+        for dep in _pyproject_deps(repo):
+            m = _PIN.match(dep)
+            if m:
+                add(m.group(1), m.group(2), "pyproject.toml")
         return out
 
     def bump(self, repo: Path, comp: Component, version: str) -> list[str]:
-        """Swap the vendored wheel for the vetted one and update the pin."""
+        """Pin the vetted version where the package is declared. Vendored: also swap the wheel."""
+        if not (repo / "wheels").is_dir():
+            return _pin(repo, comp.name, version)
         wheel, _ = self.artifacts(comp.name, version)
         wheels = repo / "wheels"
         wheels.mkdir(exist_ok=True)
@@ -80,9 +119,18 @@ class PypiEcosystem:
     # -------------------------------------------------------------- artifacts
 
     def artifacts(self, name: str, version: str) -> tuple[Path, Path]:
+        """(wheel, sdist) in the store. Real releases keep their published file names;
+        a pure-Python wheel is preferred over a platform one."""
         base = config.ARTIFACTS / "pypi" / normalise("pypi", name) / version
         stem = f"{normalise('pypi', name).replace('-', '_')}-{version}"
-        return base / f"{stem}-py3-none-any.whl", base / f"{stem}.tar.gz"
+        wheel, sdist = base / f"{stem}-py3-none-any.whl", base / f"{stem}.tar.gz"
+        if base.is_dir():
+            if not wheel.exists():
+                wheels = sorted(base.glob("*.whl"), key=lambda p: (not p.name.endswith("-none-any.whl"), p.name))
+                wheel = wheels[0] if wheels else wheel
+            if not sdist.exists():
+                sdist = next(iter(sorted(base.glob("*.tar.gz"))), sdist)
+        return wheel, sdist
 
     def sources(self, source_artifact: Path) -> dict[str, list[str]]:
         """Source files of an sdist, keyed by their path inside the installed package."""
@@ -138,6 +186,113 @@ class PypiEcosystem:
 
     def new_dependencies(self, old_shipped: Path, new_shipped: Path) -> list[str]:
         return [f"dependency {d}" for d in sorted(_requires(new_shipped) - _requires(old_shipped))]
+
+
+def _pyproject_deps(repo: Path) -> list[str]:
+    path = repo / "pyproject.toml"
+    if not path.exists():
+        return []
+    try:
+        doc = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError:
+        return []
+    return list((doc.get("project") or {}).get("dependencies") or [])
+
+
+def _lock_components(repo: Path) -> list[Component]:
+    """Every package a lock file installs (main/default groups only for Pipfile.lock)."""
+    pkgs: list[tuple[str, str, str]] = []
+    for name in ("poetry.lock", "uv.lock"):
+        path = repo / name
+        if path.exists():
+            try:
+                doc = tomllib.loads(path.read_text(encoding="utf-8"))
+            except tomllib.TOMLDecodeError:
+                continue
+            for p in doc.get("package") or []:
+                src = p.get("source") or {}
+                if p.get("name") and p.get("version") and not (src.get("editable") or src.get("virtual")):
+                    pkgs.append((p["name"], p["version"], name))
+            break
+    else:
+        path = repo / "Pipfile.lock"
+        if path.exists():
+            for n, info in (json.loads(path.read_text(encoding="utf-8")).get("default") or {}).items():
+                v = str(info.get("version", "")).removeprefix("==")
+                if v:
+                    pkgs.append((n, v, "Pipfile.lock"))
+    out, seen = [], set()
+    for n, v, where in pkgs:
+        n = normalise("pypi", n)
+        if (n, v) not in seen:
+            seen.add((n, v))
+            out.append(Component(ecosystem="pypi", name=n, version=v, purl=f"pkg:pypi/{n}@{v}", path=where))
+    return out
+
+
+def _pin(repo: Path, name: str, version: str) -> list[str]:
+    """`name==version` wherever name is declared; a transitive package is added to
+    requirements.txt. Lock files are refreshed with their own tool."""
+    key = normalise("pypi", name)
+    changed: list[str] = []
+    for req in requirement_files(repo):
+        lines, hit = [], False
+        for line in req.read_text(encoding="utf-8").splitlines():
+            code, hash_, comment = line.partition("#")
+            m = _REQ.match(code)
+            if m and code.strip() and not code.lstrip().startswith("-") and normalise("pypi", m.group(1)) == key:
+                marker = code[code.index(";"):].rstrip() if ";" in code else ""     # environment marker
+                line = f"{m.group(1)}{m.group(2) or ''}=={version}{marker}" + (f"  #{comment}" if hash_ else "")
+                hit = True
+            lines.append(line)
+        if hit:
+            req.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            changed.append(req.relative_to(repo).as_posix())
+
+    pyproject = repo / "pyproject.toml"
+    if pyproject.exists():
+        text = pyproject.read_text(encoding="utf-8")
+        deps = _pyproject_deps(repo)
+        new = text
+        for dep in deps:
+            m = _REQ.match(dep)
+            if m and normalise("pypi", m.group(1)) == key:
+                marker = dep[dep.index(";"):] if ";" in dep else ""
+                new = new.replace(f'"{dep}"', f'"{m.group(1)}{m.group(2) or ""}=={version}{marker}"')
+        if new != text:
+            pyproject.write_text(new, encoding="utf-8")
+            changed.append("pyproject.toml")
+
+    if not changed:
+        req = repo / "requirements.txt"
+        if req.exists():
+            text = req.read_text(encoding="utf-8")
+            req.write_text(text.rstrip("\n") + f"\n{name}=={version}  # PatchPilot: pinned to the vetted fix\n",
+                           encoding="utf-8")
+            changed.append("requirements.txt")
+        elif not (repo / "uv.lock").exists() and not (repo / "poetry.lock").exists():
+            raise DriverError(f"{name} is not declared anywhere PatchPilot can pin it (no requirements.txt)")
+
+    changed += _relock(repo, name, version)
+    return changed
+
+
+def _relock(repo: Path, name: str, version: str) -> list[str]:
+    """Bring a lock file to the pinned version with the project's own tool."""
+    if (repo / "uv.lock").exists():
+        cmd = ["uv", "lock", "--upgrade-package", f"{name}=={version}"]
+        lock = "uv.lock"
+    elif (repo / "poetry.lock").exists():
+        cmd = ["poetry", "update", "--lock", name]
+        lock = "poetry.lock"
+    else:
+        return []
+    if not shutil.which(cmd[0]):
+        raise DriverError(f"{lock} must be refreshed with {cmd[0]}, which is not installed here")
+    proc = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, timeout=600)
+    if proc.returncode != 0:
+        raise DriverError(f"{' '.join(cmd)} failed: {proc.stderr.strip()[-400:]}")
+    return [lock]
 
 
 def _requires(wheel: Path) -> set[str]:

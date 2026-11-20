@@ -97,6 +97,10 @@ def _tools(r: Report) -> None:
            else "docker not found: needed to build and canary fixes", required=False)
     r.line(bool(shutil.which("syft")), "syft (SBOM of running images)" if shutil.which("syft")
            else "syft not found: inventory falls back to the repositories' pins", required=False)
+    for tool, why in (("go", "Go fixes run `go get` (without it go.mod/go.sum are edited directly)"),
+                      ("uv", "refreshes uv.lock after a Python fix"), ("poetry", "refreshes poetry.lock after a Python fix")):
+        r.line(bool(shutil.which(tool)), f"{tool} ({why})" if shutil.which(tool) else f"{tool} not found: {why}",
+               required=False)
 
 
 def main() -> int:

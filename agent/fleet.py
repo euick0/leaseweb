@@ -15,11 +15,12 @@ from . import config, settings
 from .builder import SOURCE_LABEL, Builder
 from .drivers import forge
 from .drivers.base import Ecosystem, Source, Target
+from .drivers.golang import GoEcosystem
 from .drivers.maven import MavenEcosystem
 from .drivers.pypi import PypiEcosystem
 from .schemas import Workload
 
-ECOSYSTEMS: dict[str, Ecosystem] = {"maven": MavenEcosystem(), "pypi": PypiEcosystem()}
+ECOSYSTEMS: dict[str, Ecosystem] = {"maven": MavenEcosystem(), "pypi": PypiEcosystem(), "go": GoEcosystem()}
 
 
 def register_ecosystems(specs: list) -> None:
