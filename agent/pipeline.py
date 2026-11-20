@@ -60,7 +60,7 @@ def probes_for(fl: fleet.Fleet, wl: Workload, advisories: list[dict]) -> list[st
         return names
     comps = [c for c in sbom(fl, wl)[0] if overrides.package_in_scope(c)]
     for adv in advisories:
-        probe = feed.hints(adv).get("probe")
+        probe = probes.for_advisory(adv, feed.hints(adv).get("probe"))
         if probe and probe not in names and any(
                 eco == c.ecosystem and pkg in (feed.normalise(eco, c.name), c.coordinate)
                 for eco, pkg, _ in feed.affected_packages(adv) for c in comps):
@@ -68,8 +68,8 @@ def probes_for(fl: fleet.Fleet, wl: Workload, advisories: list[dict]) -> list[st
     return names
 
 def _probe(fl: fleet.Fleet, adv: dict, wl: Workload, via: str, log: Log, label: str) -> Optional[dict]:
-    name = feed.hints(adv).get("probe")
-    if not name or name not in probes.PROBES:
+    name = probes.for_advisory(adv, feed.hints(adv).get("probe"))
+    if not name:
         return None
     r = probes.run(name, fl.target(wl.target), wl, via)
     if via != "canary":

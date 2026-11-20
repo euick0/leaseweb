@@ -55,7 +55,6 @@
       <h1 id="title">Overview</h1>
       <span id="sovereign"></span>
       <div class="right">
-        <details class="menu" id="demo" hidden><summary>Demo scenarios</summary><div class="menu-list" id="demo-list"></div></details>
         <form class="add-adv act-only" id="add-advisory" title="Fetch an advisory from OSV by id and run it">
           <input type="search" id="advisory-id" placeholder="Paste a CVE or GHSA id" aria-label="Advisory id"><button type="submit">Add advisory</button></form>
         <button id="refresh" title="Ask every environment for its services again">Rediscover</button>
@@ -167,7 +166,7 @@ const plural = (n, word, many) => `${n} ${n === 1 ? word : (many || word + "s")}
 const pkg = (c) => (c.group ? c.group + ":" : "") + c.name;
 
 // ----------------------------------------------------------------- state
-const S = { fleet: null, runs: [], scenarios: [], details: new Map(), approvals: [], audit: [] };
+const S = { fleet: null, runs: [], details: new Map(), approvals: [], audit: [] };
 const view = { run: null, item: linked.get("item") ? Number(linked.get("item")) : null, tab: "decisions", filter: "", followAfter: null, sel: null, only: false };
 const PAGES = { overview: "Overview", advisories: "Advisories", approvals: "Approvals", fleet: "Fleet", audit: "Audit log" };
 const route = () => {
@@ -279,7 +278,7 @@ function envCard(env, wls) {
 
 function emptyAdvisories() {
   return `<div class="empty">No advisories yet. LightHouse picks up every advisory that lands in the feed and decides what to do for each affected service.
-    ${me.mayAct ? "Add one by id (CVE-… or GHSA-…) at the top" + (S.fleet?.demo ? ", or pick a scenario from the Demo menu." : ".") : ""}</div>`;
+    ${me.mayAct ? "Add one by id (CVE-… or GHSA-…) at the top." : ""}</div>`;
 }
 
 // ----------------------------------------------------------------- pages
@@ -300,7 +299,7 @@ const SKELETON = {
   advisories: `<div class="cols"><section><h2>Advisories</h2><div id="adv-list"></div></section>
     <section><div id="adv-head"></div><div class="tabs" id="adv-tabs"></div><div id="adv-body"></div></section></div>`,
   approvals: `<section><div class="sec-head"><h2>Waiting on you</h2><span class="small">Policy asks a person before these go out. Each card shows the evidence and what happens if you approve.</span></div><div id="appr" class="items"></div></section>`,
-  audit: `<section><div class="sec-head"><h2>Who did what</h2><span class="small">Approvals, rejections, triggers and resets. Never cleared by a demo reset.</span></div><div id="audit"></div></section>`,
+  audit: `<section><div class="sec-head"><h2>Who did what</h2><span class="small">Approvals, rejections and advisories added. Kept across a decision-log clear.</span></div><div id="audit"></div></section>`,
   fleet: `<div class="envs" id="fl-envs"></div>
     <section><div class="sec-head"><h2>Services</h2><input type="search" id="fl-filter" placeholder="Filter by name, environment, image…"></div><div id="fl-table"></div></section>`,
 };
@@ -532,7 +531,7 @@ function renderOverview() {
     .sort((a, b) => b.ts - a.ts || b.id - a.id).slice(0, 8);
   set("ov-act", evs.map((e) => `<li><span class="t">${time(e.ts)}</span><span class="d ${esc(e.status)}"></span>
       <span><b>${esc(STEP[e.step] || e.step)}</b> · <a href="#/advisories/${e.run.id}">${esc(e.run.title)}</a><br><span class="small">${esc(e.title)}</span></span></li>`).join("")
-    || `<li style="display:block;color:var(--muted)">${n ? "Quiet. LightHouse is watching the advisory feeds." : "Nothing yet. Activity shows up here once LightHouse has services to watch."}${me.mayAct && S.fleet.demo ? " Try a scenario from Demo scenarios at the top." : ""}</li>`);
+    || `<li style="display:block;color:var(--muted)">${n ? "Quiet. LightHouse is watching the advisory feeds." : "Nothing yet. Activity shows up here once LightHouse has services to watch."}</li>`);
 }
 
 function renderAdvisories() {
@@ -610,13 +609,10 @@ function render() {
   set("sovereign", llm.sovereign
     ? chip("c-green", "Sovereign · 0 prompts left our infrastructure", `No hosted model API is configured. ${llm.local_calls} model call(s) since start, all on our own infrastructure.`)
     : chip("c-amber", `Hosted model allowed: ${llm.hosted_calls} prompt(s) sent out`, `Hosted providers: ${llm.hosted_providers.join(", ") || "none now"}. Prompts to them are redacted (${llm.redactions} redaction(s) so far).`));
-  $("#demo").hidden = !S.fleet.demo || !me.mayAct;
   document.querySelectorAll(".act-only").forEach((el) => { el.hidden = !me.mayAct; });
   $("#signout").hidden = me.auth !== "token";
-  set("me", me.auth === "none" ? "No login (demo)" : `<b>${esc(me.user)}</b><span class="small">${me.mayAct ? "Can approve" : "View only"}</span>`);
+  set("me", me.auth === "none" ? "No login" : `<b>${esc(me.user)}</b><span class="small">${me.mayAct ? "Can approve" : "View only"}</span>`);
   $("#avatar").textContent = (me.user || "?").slice(0, 1);
-  set("demo-list", S.scenarios.map((s) => `<button data-scenario="${esc(s.name)}"><b>${esc(s.title)}${s.triggered ? " · already run" : ""}</b><span class="small">${esc(s.summary)}</span></button>`).join("")
-    + `<div class="small">Scenarios publish a canned advisory into the feed. Reset with scripts/reset_demo.sh.</div>`);
   if (r.name === "advisories" && view.item && !view.scrolled) {
     const el = document.getElementById(`item-${view.item}`);
     if (el) { el.scrollIntoView({ block: "center" }); view.scrolled = true; }
@@ -633,7 +629,6 @@ async function tick() {
     const [fleet, runs, who] = await Promise.all([api("/api/fleet"), api("/api/runs"), api("/api/me")]);
     S.fleet = fleet; S.runs = runs;
     Object.assign(me, { user: who.user, mayAct: who.may_act, auth: who.auth });
-    S.scenarios = fleet.demo ? await api("/api/scenarios") : [];
     signedIn(); $("#conn").hidden = true;
     const newer = view.followAfter !== null && runs.find((x) => x.id > view.followAfter);
     if (newer) { view.followAfter = null; view.item = null; history.replaceState(null, "", `#/advisories/${newer.id}`); }
@@ -690,17 +685,11 @@ document.addEventListener("click", (ev) => {       // service map: select a node
 document.addEventListener("click", async (ev) => {
   const row = ev.target.closest("tr[data-href]");
   if (row && !ev.target.closest("a,button")) { location.hash = row.dataset.href; return; }
-  const el = ev.target.closest("[data-scenario],[data-approve],[data-reject],[data-tab],[data-steps],#probe,#refresh,#signout");
+  const el = ev.target.closest("[data-approve],[data-reject],[data-tab],[data-steps],#probe,#refresh,#signout");
   if (!el) return;
   if (el.tagName === "A") ev.preventDefault();
   try {
-    if (el.dataset.scenario) {
-      $("#demo").open = false;
-      const res = await api(`/api/scenarios/${el.dataset.scenario}`, { method: "POST" });
-      view.followAfter = S.runs[0]?.id ?? 0;
-      toast(`Published ${res.advisory} to the feed. LightHouse is on it.`);
-      location.hash = "#/advisories";
-    } else if (el.dataset.approve) {
+    if (el.dataset.approve) {
       el.disabled = true;
       await api(`/api/items/${el.dataset.approve}/approve`, { method: "POST" });
       toast(`Approved: ${el.dataset.what} on ${el.dataset.name}.`);
@@ -733,10 +722,6 @@ document.addEventListener("click", async (ev) => {
     el.disabled = false;
     if (el.id === "probe") el.textContent = "Run exploit checks";
   }
-});
-
-document.addEventListener("click", (ev) => {      // close the demo menu on any click outside it
-  if (!ev.target.closest("#demo")) $("#demo").open = false;
 });
 
 document.addEventListener("input", (ev) => {

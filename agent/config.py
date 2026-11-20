@@ -32,7 +32,6 @@ ARTIFACTS = WORKSPACE / "artifacts"
 # swap a file in artifacts/ cannot fix up its checksum in the same place.
 CHECKSUMS = Path(os.environ.get("PP_CHECKSUMS", WORKSPACE / "checksums.lock"))
 FEED_DIR = WORKSPACE / "feed"
-SCENARIOS_DIR = WORKSPACE / "scenarios"
 FLEET_FILE = Path(os.environ.get("PP_FLEET", WORKSPACE / "fleet.yaml"))
 POLICY_FILE = Path(os.environ.get("PP_POLICY", WORKSPACE / "policy.yaml"))
 STATE_DIR = Path(os.environ.get("PP_STATE", WORKSPACE / "state"))
@@ -62,8 +61,5 @@ VET_REVIEW_ALL_UP_TO = int(os.environ.get("VET_REVIEW_ALL_UP_TO", "20"))
 # Canary and rollout
 HEALTH_TIMEOUT = float(os.environ.get("PP_HEALTH_TIMEOUT", "60"))
 ROLLOUT_TIMEOUT = float(os.environ.get("PP_ROLLOUT_TIMEOUT", "120"))
-
-# Demo controls (publish a scenario, wipe the decision log) exist only with PP_DEMO=1.
-DEMO = os.environ.get("PP_DEMO", "") == "1"
 
 FEED_POLL_SECONDS = float(os.environ.get("FEED_POLL_SECONDS", "2"))

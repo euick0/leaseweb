@@ -6,7 +6,7 @@ agent/providers.py.
 The cache is the stage safety net: every valid live answer is written to
 agent/cache/<kind>/<key>.json, and when the model is slow, down, or returns
 invalid JSON twice, the cached answer is used instead (and labelled as such).
-Hand-written seed answers (model "seed") let the demo run before the model is
+Hand-written seed answers (model "seed") let the agent run before the model is
 pulled; they are labelled "seed" and replaced by the first live answer.
 
 A content-keyed question (`content_keyed=True`) is cached under a hash of the
