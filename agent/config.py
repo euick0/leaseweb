@@ -18,8 +18,13 @@ CACHE_DIR = Path(os.environ.get("PP_CACHE_DIR", Path(__file__).resolve().parent 
 DB_PATH = Path(os.environ.get("PP_DB", STATE_DIR / "decisions.sqlite"))
 
 # LLM
+# ollama    = open-weight model on our own hardware (the hackathon setup)
+# anthropic = Claude through the Anthropic API, for development and testing only
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:14b")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5")
+ANTHROPIC_EFFORT = os.environ.get("ANTHROPIC_EFFORT", "medium")
 # live  = ask the model, fall back to the cache on failure
 # cache = only use cached answers (stage safety net)
 LLM_MODE = os.environ.get("LLM_MODE", "live")
@@ -31,3 +36,7 @@ HEALTH_TIMEOUT = float(os.environ.get("PP_HEALTH_TIMEOUT", "60"))
 ROLLOUT_TIMEOUT = float(os.environ.get("PP_ROLLOUT_TIMEOUT", "120"))
 
 FEED_POLL_SECONDS = float(os.environ.get("FEED_POLL_SECONDS", "2"))
+
+
+def model_name() -> str:
+    return ANTHROPIC_MODEL if LLM_PROVIDER == "anthropic" else OLLAMA_MODEL
