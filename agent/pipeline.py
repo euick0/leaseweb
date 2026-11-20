@@ -12,7 +12,8 @@ import threading
 import traceback
 from typing import Optional
 
-from . import config, db, feed, fleet, inventory, matcher, mitigation, policy, probes, settings, triage, vetter
+from . import (config, db, feed, fleet, inventory, matcher, mitigation, overrides, policy, probes, settings, triage,
+               vetter)
 from .builder import BuildError
 from .drivers.base import DriverError
 from .schemas import Component, Match, TriageResult, VetResult, Workload
@@ -42,6 +43,11 @@ def sbom(fl: fleet.Fleet, wl: Workload) -> tuple[list[Component], str]:
     return _sboms[wl.image]
 
 
+def cached_sbom(wl: Workload) -> list[Component]:
+    """The components of a workload if it was scanned already; never starts a scan."""
+    return _sboms.get(wl.image, ([], ""))[0]
+
+
 def forget_sboms() -> None:
     _sboms.clear()
 
@@ -49,7 +55,9 @@ def forget_sboms() -> None:
 def probes_for(fl: fleet.Fleet, wl: Workload, advisories: list[dict]) -> list[str]:
     """Probes of the advisories whose package this workload carries, in any version."""
     names = []
-    comps = sbom(fl, wl)[0]
+    if not overrides.in_scope(wl):
+        return names
+    comps = [c for c in sbom(fl, wl)[0] if overrides.package_in_scope(c)]
     for adv in advisories:
         probe = feed.hints(adv).get("probe")
         if probe and probe not in names and any(
@@ -142,16 +150,20 @@ def _run(adv: dict, run_id: int, log: Log) -> None:
     fl = fleet.get()
     log("watch", "info", f"New advisory {feed.title(adv)}", adv.get("summary"), {"id": adv["id"]})
 
-    # 1. discover
-    workloads = fl.discover(max_age=0)
+    # 1. discover, then leave out what the dashboard's scope excludes
+    found = fl.discover(max_age=0)
+    workloads = [w for w in found if overrides.in_scope(w)]
     envs = sorted({w.target for w in workloads})
     log("discover", "ok" if workloads else "warn",
         f"{len(workloads)} workloads across {len(envs)} environments",
         "; ".join(f"{n}: {e}" for n, e in fl.target_errors.items()) or None,
         [w.model_dump() for w in workloads])
+    if len(workloads) < len(found):
+        log("discover", "info", f"{len(found) - len(workloads)} workload(s) out of scope, left alone",
+            ", ".join(sorted(w.id for w in found if not overrides.in_scope(w))))
 
-    # 2. inventory, one SBOM per distinct image
-    inv = {wl.id: sbom(fl, wl)[0] for wl in workloads}
+    # 2. inventory, one SBOM per distinct image; packages out of scope are not matched
+    inv = {wl.id: [c for c in sbom(fl, wl)[0] if overrides.package_in_scope(c)] for wl in workloads}
     images = {wl.image for wl in workloads}
     log("inventory", "ok", f"SBOMs for {len(images)} images, {sum(len(_sboms[i][0]) for i in images)} packages",
         "; ".join(sorted({_sboms[i][1] for i in images})))

@@ -29,7 +29,7 @@ from typing import Optional, Protocol, Type, TypeVar
 import requests
 from pydantic import BaseModel
 
-from . import config
+from . import config, overrides
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -65,7 +65,7 @@ class Ollama:
     name = "ollama"
 
     def __init__(self):
-        self.model = config.OLLAMA_MODEL
+        self.model = overrides.model("ollama") or config.OLLAMA_MODEL
         self.url = config.OLLAMA_URL
 
     def chat(self, system: str, user: str, schema: Type[T], timeout: float) -> T:
@@ -120,7 +120,7 @@ class OpenAICompatible:
     def __init__(self, name: str, preset: Preset):
         self.name = name
         self.base_url = (_env(name, "BASE_URL") or preset.base_url or "").rstrip("/")
-        self.model = _env(name, "MODEL") or preset.model or ""
+        self.model = overrides.model(name) or _env(name, "MODEL") or preset.model or ""
         self.api_key = next((os.environ[k] for k in preset.key_envs if os.environ.get(k)), None)
         self.json_mode = _env(name, "JSON_MODE") or preset.json_mode
         self.temperature = preset.temperature
@@ -180,7 +180,7 @@ class Anthropic:
     name = "anthropic"
 
     def __init__(self):
-        self.model = config.ANTHROPIC_MODEL
+        self.model = overrides.model("anthropic") or config.ANTHROPIC_MODEL
 
     def chat(self, system: str, user: str, schema: Type[T], timeout: float) -> T:
         try:
@@ -238,8 +238,9 @@ def get(name: str) -> Provider:
 
 
 def chain() -> list[Provider]:
-    """The providers in LLM_PROVIDER, in the order they are tried ("ollama,deepseek")."""
-    return [get(n) for n in config.LLM_PROVIDER.split(",") if n.strip()]
+    """The providers in LLM_PROVIDER (or chosen in the dashboard), in the order they are
+    tried ("ollama,deepseek")."""
+    return [get(n) for n in overrides.llm_providers()]
 
 
 def hosted(p: Provider) -> bool:

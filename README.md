@@ -66,6 +66,16 @@ What each piece does:
 
 Missing a piece? Any slot also takes your own class as `kind: "module:Class"`, with the module placed in `plugins/`. `plugins/README.md` lists what each slot expects, and `plugins/example_jira.py` is a complete example.
 
+## Settings page
+
+`/settings` (linked from the dashboard) shows what runs on the server (host load, memory and disk, the agent's workers and current rollout, Ollama and the models it has loaded, Docker containers, the fleet) and lets an admin change, without a restart:
+
+- **AI model:** the provider chain and its order, the model per provider (listed from the provider), live or cache-only answers, and a connection test. API keys stay in `.env`.
+- **AI permissions:** an autonomy level (recommend only, balanced, autonomous) or each rule of `policy.yaml` on its own. The same validation applies, so a malicious fix can never be automatic; hosted models can only be chosen while `allow_hosted_llm` is on.
+- **Scope:** environments, services, ecosystems and packages PatchPilot leaves alone (no runs, probes or OSV queries for them).
+
+Changes are kept in `state/ui-settings.json` over the files, each section can be reset to the files, and every change is in the audit log (the *Activity* tab). Who may change settings: `auth.admins` in `patchpilot.yaml`, or the approvers when it is not set.
+
 ## Model providers
 
 `LLM_PROVIDER` picks the model, or a fallback chain tried in order:

@@ -11,7 +11,9 @@
          (a laptop demo); the default stays closed.
 
 `approvers` (optional, any kind) lists who may approve, reject, trigger and
-reset; everyone who can log in may read. A custom piece is a class with
+reset; everyone who can log in may read. `admins` (optional) lists who may
+change settings in the dashboard (models, policy, scope); without it, the
+approvers may. A custom piece is a class with
 `identify(headers) -> Optional[str]` and a `kind` attribute.
 """
 from __future__ import annotations
@@ -103,12 +105,16 @@ class Auth:
         cfg = cfg or {}
         self.piece = settings.load_class(cfg.get("kind", "token"), BUILTIN, "auth")(cfg)
         self.approvers = set(cfg.get("approvers") or [])
+        self.admins = set(cfg.get("admins") or [])
 
     def identify(self, headers: Mapping[str, str]) -> Optional[str]:
         return self.piece.identify(headers)
 
     def may_act(self, user: str) -> bool:
         return not self.approvers or user in self.approvers
+
+    def may_admin(self, user: str) -> bool:
+        return user in self.admins if self.admins else self.may_act(user)
 
 
 _auth: Optional[Auth] = None
@@ -144,4 +150,11 @@ def act(user: str = Depends(require)) -> str:
     """FastAPI dependency: the logged-in user, if they may change things, else 403."""
     if not get().may_act(user):
         raise HTTPException(403, f"{user} may view but not act (not in auth.approvers)")
+    return user
+
+
+def admin(user: str = Depends(require)) -> str:
+    """FastAPI dependency: the logged-in user, if they may change settings, else 403."""
+    if not get().may_admin(user):
+        raise HTTPException(403, f"{user} may not change settings (not in auth.admins)")
     return user

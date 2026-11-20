@@ -316,3 +316,11 @@ def test_api_and_dashboard(demo):
         assert "Approved by maria: mitigate" in titles(run_id, item["id"])
         assert client.post("/api/reset").json() == {"ok": True}
         assert client.get("/api/runs").json() == []
+
+
+def test_out_of_scope_workloads_are_left_alone(demo):
+    from agent import overrides
+    overrides.put("scope", {"workloads": ["hyperscaler/shop/orders-java"]})
+    items = items_by_workload(publish("log4shell"))
+    assert set(items) == {"reports-java"}                       # orders-java carries log4j too, but is excluded
+    assert pipeline.probes_for(demo, demo.workload("hyperscaler/shop/orders-java"), [scenario("log4shell")]) == []

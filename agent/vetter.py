@@ -33,7 +33,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import config, feed, llm
+from . import config, feed, llm, overrides
 from .drivers.base import Ecosystem
 from .schemas import ChunkReview, FileReview, Flag, VetResult
 
@@ -270,7 +270,7 @@ def vet(adv: dict, eco: Ecosystem, name: str, old_v: str, new_v: str, log: LogFn
                     answer, source = llm.ask("vet", key, system, user, ChunkReview,
                                              timeout=max(remaining, 5), content_keyed=True)
                 except llm.LLMUnavailable as exc:
-                    if config.LLM_MODE != "cache":      # cache-only mode: go on with what was answered before
+                    if overrides.llm_mode() != "cache":      # cache-only mode: go on with what was answered before
                         log("warn", f"Model review unavailable for {path}", str(exc), None)
                         stopped = "model unavailable"
                     break
@@ -288,7 +288,7 @@ def vet(adv: dict, eco: Ecosystem, name: str, old_v: str, new_v: str, log: LogFn
 
     missing = sorted(required - complete)
     if missing:
-        why = stopped or ("no model answer in the cache (LLM_MODE=cache)" if config.LLM_MODE == "cache"
+        why = stopped or ("no model answer in the cache (LLM_MODE=cache)" if overrides.llm_mode() == "cache"
                           else "no model answer")
         incomplete = (f"review incomplete: {len(missing)} of {len(required)} file(s) that must be reviewed "
                       f"have no model answer ({why})")

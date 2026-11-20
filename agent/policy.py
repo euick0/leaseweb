@@ -4,9 +4,10 @@ overrides from the repository's .patchpilot.yaml (`policy:` key).
 Decisions: auto | needs_approval | block | queue | ignore | escalate. The model's
 recommendation is an input; the decision is made here, in code.
 
-The fleet file is validated in full and a bad one is an error. A repository can
-only make the fleet policy stricter: an override that is looser, unknown, or
-for a fleet-only key is dropped and reported, never applied.
+The fleet file is validated in full and a bad one is an error. Changes made in
+the dashboard (agent/overrides.py) are validated the same way and layered over
+it. A repository can only make the fleet policy stricter: an override that is
+looser, unknown, or for a fleet-only key is dropped and reported, never applied.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from typing import Optional
 
 import yaml
 
-from . import config
+from . import config, overrides
 from .schemas import TriageResult, VetResult, Workload
 
 DEFAULTS = {
@@ -47,6 +48,25 @@ ALLOWED_PATCH = {
     "suspicious": ("needs_approval", "block"),
     "malicious": ("block",),
 }
+# One-click autonomy levels for the dashboard; each is a complete, valid policy
+# apart from allow_hosted_llm, which a preset never changes.
+PRESETS = {
+    "observe": {"label": "Recommend only", "summary": "PatchPilot investigates and proposes; a human approves every action.",
+                "policy": {"patch": {"clean": "needs_approval", "unreviewed": "needs_approval",
+                                     "suspicious": "needs_approval", "malicious": "block"},
+                           "mitigate": "needs_approval", "not_reachable": "needs_approval",
+                           "act_now_when": "internet_exposed", "blocked_patch_fallback": "mitigate"}},
+    "balanced": {"label": "Balanced", "summary": "Clean, fully reviewed fixes roll out on their own on exposed "
+                                                 "workloads; everything else waits for a human.",
+                 "policy": {k: v for k, v in DEFAULTS.items() if k != "allow_hosted_llm"}},
+    "autonomous": {"label": "Autonomous", "summary": "Clean fixes and virtual patches are applied everywhere "
+                                                     "without asking. Suspicious fixes still need a human.",
+                   "policy": {"patch": {"clean": "auto", "unreviewed": "needs_approval",
+                                        "suspicious": "needs_approval", "malicious": "block"},
+                              "mitigate": "auto", "not_reachable": "ignore",
+                              "act_now_when": "always", "blocked_patch_fallback": "mitigate"}},
+}
+
 STRICTNESS = ["ignore", "auto", "queue", "needs_approval", "block"]     # loosest to strictest
 REPO_KEYS = ("mitigate", "not_reachable")           # plus patch.*; everything else is fleet-only
 
@@ -77,8 +97,15 @@ def _problems(doc: object) -> list[str]:
     return out
 
 
-def fleet() -> dict:
-    """The fleet policy: defaults overlaid with policy.yaml. Raises PolicyError on a bad file."""
+def validate(doc: object) -> None:
+    """Raise PolicyError when `doc` is not a valid (possibly partial) policy."""
+    problems = _problems(doc)
+    if problems:
+        raise PolicyError("; ".join(problems))
+
+
+def file_policy() -> dict:
+    """Defaults overlaid with policy.yaml, without the dashboard's changes."""
     policy = {**DEFAULTS, "patch": dict(DEFAULTS["patch"])}
     if config.POLICY_FILE.exists():
         try:
@@ -90,6 +117,17 @@ def fleet() -> dict:
             raise PolicyError(f"{config.POLICY_FILE.name}: " + "; ".join(problems))
         policy.update({k: v for k, v in file.items() if k != "patch"})
         policy["patch"].update(file.get("patch") or {})
+    return policy
+
+
+def fleet() -> dict:
+    """The fleet policy: defaults, then policy.yaml, then the dashboard's changes.
+    Raises PolicyError on a bad file."""
+    policy = file_policy()
+    ui = overrides.section("policy")
+    if ui and not _problems(ui):              # validated when saved; a hand-edited bad file is skipped
+        policy.update({k: v for k, v in ui.items() if k != "patch"})
+        policy["patch"].update(ui.get("patch") or {})
     return policy
 
 

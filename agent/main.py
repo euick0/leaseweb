@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, config, db, feed, feeds, fleet, llm, notify, pipeline, policy, probes
+from . import auth, config, db, feed, feeds, fleet, llm, notify, pipeline, policy, probes, settings_api
 
 STATIC = Path(__file__).resolve().parent / "static"
 _run_lock = threading.Lock()
@@ -56,9 +56,9 @@ async def lifespan(_app: FastAPI):
               f"[auth] dashboard: http://localhost:8000/#token={auth.generated()}", flush=True)
     config.FEED_DIR.mkdir(parents=True, exist_ok=True)
     stop = threading.Event()
-    watcher = threading.Thread(target=_watch_feed, args=(stop,), daemon=True)
+    watcher = threading.Thread(target=_watch_feed, args=(stop,), daemon=True, name="pp-feed-watcher")
     watcher.start()
-    threading.Thread(target=feeds.run_poller, args=(stop,), daemon=True).start()
+    threading.Thread(target=feeds.run_poller, args=(stop,), daemon=True, name="pp-feed-poller").start()
     yield
     stop.set()
     watcher.join(timeout=30)
@@ -76,7 +76,8 @@ def _demo_only() -> None:
 @api.get("/me")
 def me(request: Request):
     user = request.state.user
-    return {"user": user, "may_act": auth.get().may_act(user), "auth": auth.get().piece.kind}
+    return {"user": user, "may_act": auth.get().may_act(user), "may_admin": auth.get().may_admin(user),
+            "auth": auth.get().piece.kind}
 
 
 @api.get("/audit")
@@ -208,12 +209,18 @@ def reset(actor: str = Depends(auth.act)):
 
 # --------------------------------------------------------------- dashboard
 
+api.include_router(settings_api.router)
 app.include_router(api)
 
 
 @app.get("/")
 def index():
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/settings")
+def settings_page():
+    return FileResponse(STATIC / "settings.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

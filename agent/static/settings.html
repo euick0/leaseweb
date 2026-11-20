@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PatchPilot settings</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #16181d; --muted: #5d6573; --line: #e2e5ea;
+  --red: #c62828; --red-bg: #fdecec; --green: #1b7f3b; --green-bg: #e7f6ec;
+  --amber: #a15c00; --amber-bg: #fff4e0; --blue: #1f5fbf; --blue-bg: #e8f0fc;
+  --grey-bg: #eef0f3; --on-blue: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317; --panel: #1a1d23; --ink: #e8eaee; --muted: #9aa3b2; --line: #2b3039;
+    --red: #ff6b6b; --red-bg: #3a1d1f; --green: #4cc27a; --green-bg: #17301f;
+    --amber: #f0a742; --amber-bg: #352813; --blue: #78a8ff; --blue-bg: #18253d;
+    --grey-bg: #242830; --on-blue: #0b1220;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button, input, select { font: inherit; color: var(--ink); }
+button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--blue); color: var(--on-blue); border-color: var(--blue); }
+button.danger { color: var(--red); }
+button:disabled, input:disabled, select:disabled { opacity: .55; cursor: default; }
+input[type=text], select { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+.top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.top h1 { font-size: 18px; margin: 0; }
+.top .right { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+.tabs { display: flex; gap: 4px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 12px; color: var(--muted); background: none; white-space: nowrap; }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--blue); font-weight: 600; }
+main { padding: 16px 20px 40px; display: grid; gap: 16px; max-width: 1200px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+h2 { font-size: 13px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.sec-head h2 { margin: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 16px; align-items: start; }
+.small { color: var(--muted); font-size: 12px; }
+.chip { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.c-red { background: var(--red-bg); color: var(--red); } .c-green { background: var(--green-bg); color: var(--green); }
+.c-amber { background: var(--amber-bg); color: var(--amber); } .c-blue { background: var(--blue-bg); color: var(--blue); }
+.c-grey { background: var(--grey-bg); color: var(--muted); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.note { background: var(--amber-bg); color: var(--amber); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+.msg { font-size: 13px; } .msg.err { color: var(--red); } .msg.ok { color: var(--green); }
+.facts { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.facts dt { color: var(--muted); font-size: 12px; font-weight: 600; padding-top: 1px; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.bar { height: 6px; background: var(--grey-bg); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.bar > span { display: block; height: 100%; background: var(--blue); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.mono, .mono { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.chain { display: grid; gap: 8px; }
+.prov { display: grid; grid-template-columns: 28px minmax(120px, 160px) minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.prov .n { font-weight: 700; color: var(--muted); text-align: center; }
+.prov input { width: 100%; }
+@media (max-width: 640px) { .prov { grid-template-columns: 24px minmax(0, 1fr); } .prov > :nth-child(n+3) { grid-column: 2; } .facts { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+.presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; }
+.preset { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 6px; align-content: start; }
+.preset.on { border-color: var(--blue); background: var(--blue-bg); }
+.preset b { font-size: 15px; }
+.rules { display: grid; gap: 0; }
+.rule { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 280px); gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.rule:last-child { border-bottom: 0; }
+.rule select { width: 100%; }
+@media (max-width: 640px) { .rule { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+.changed { color: var(--blue); font-size: 11px; font-weight: 700; margin-left: 6px; }
+.checks { display: flex; gap: 8px 16px; flex-wrap: wrap; }
+.checks label, td label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+tr.off td { opacity: .55; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.tags .chip button { border: 0; background: none; padding: 0 0 0 4px; color: inherit; font-weight: 700; }
+.empty { color: var(--muted); padding: 8px 0; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="/">← Dashboard</a>
+  <h1>Settings</h1>
+  <div class="right"><span id="me" class="small"></span></div>
+</div>
+<nav class="tabs" id="tabs">
+  <button data-tab="server" class="on">Server</button>
+  <button data-tab="model">AI model</button>
+  <button data-tab="permissions">AI permissions</button>
+  <button data-tab="scope">Scope</button>
+  <button data-tab="activity">Activity</button>
+</nav>
+<main>
+  <div id="readonly" class="note" hidden>You can view these settings but not change them (ask someone listed in <code>auth.admins</code> or <code>auth.approvers</code>).</div>
+
+  <!-- server -->
+  <div data-panel="server" class="grid" id="server"></div>
+
+  <!-- model -->
+  <div data-panel="model" hidden>
+    <section>
+      <div class="sec-head"><h2>Models in use</h2><span id="llm-status" class="small"></span></div>
+      <p class="small">PatchPilot asks the first model in the list; when it cannot answer, the next one. Hosted models only receive redacted prompts, and only when AI permissions allow it. API keys stay in <code>.env</code>.</p>
+      <div class="chain" id="chain"></div>
+      <div class="btns" style="margin-top: 10px">
+        <select id="add-provider" aria-label="Add a provider"></select>
+        <button id="add-provider-btn" class="admin">Add</button>
+      </div>
+    </section>
+    <section>
+      <h2>Answers</h2>
+      <div class="rule">
+        <div><b>Mode</b><div class="small">Live asks the model and falls back to cached answers. Cache only never calls a model (stage safety net).</div></div>
+        <select id="mode" class="admin"><option value="live">Live</option><option value="cache">Cache only</option></select>
+      </div>
+    </section>
+    <div class="btns">
+      <button class="primary admin" id="save-llm">Save models</button>
+      <button class="admin" id="test-llm">Test connection</button>
+      <button class="danger admin" id="reset-llm">Reset to config files</button>
+      <span class="msg" id="llm-msg"></span>
+    </div>
+    <section id="test-out" hidden><h2>Connection test</h2><div id="test-rows"></div></section>
+  </div>
+
+  <!-- permissions -->
+  <div data-panel="permissions" hidden>
+    <section>
+      <h2>Autonomy level</h2>
+      <div class="presets" id="presets"></div>
+    </section>
+    <section>
+      <div class="sec-head"><h2>Rules</h2><span class="small">Changes made here are marked <span class="changed">CHANGED</span>; the rest comes from policy.yaml.</span></div>
+      <div class="rules" id="rules"></div>
+    </section>
+    <div class="btns">
+      <button class="primary admin" id="save-policy">Save rules</button>
+      <button class="danger admin" id="reset-policy">Reset to policy.yaml</button>
+      <span class="msg" id="policy-msg"></span>
+    </div>
+  </div>
+
+  <!-- scope -->
+  <div data-panel="scope" hidden>
+    <section>
+      <h2>Environments</h2>
+      <p class="small">Unticked environments are left alone: no runs, probes or advisories for anything running there.</p>
+      <div class="checks" id="scope-targets"></div>
+    </section>
+    <section>
+      <div class="sec-head"><h2>Services</h2><button id="scan">Scan packages</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Work on</th><th>Service</th><th>Environment</th><th>Exposure</th><th>Packages</th><th>Image</th></tr></thead><tbody id="scope-workloads"></tbody></table></div>
+    </section>
+    <section>
+      <h2>Package ecosystems</h2>
+      <div class="checks" id="scope-ecos"></div>
+    </section>
+    <section>
+      <h2>Packages to leave alone</h2>
+      <p class="small">Advisories for these packages are not matched anywhere, e.g. one your team patches by hand.</p>
+      <div class="btns">
+        <input type="text" id="pkg-input" list="pkg-list" placeholder="org.apache.logging.log4j:log4j-core" size="36" class="admin" aria-label="Package">
+        <datalist id="pkg-list"></datalist>
+        <button id="pkg-add" class="admin">Add</button>
+      </div>
+      <div class="tags" id="scope-pkgs"></div>
+    </section>
+    <div class="btns">
+      <button class="primary admin" id="save-scope">Save scope</button>
+      <button class="danger admin" id="reset-scope">Work on everything</button>
+      <span class="msg" id="scope-msg"></span>
+    </div>
+  </div>
+
+  <!-- activity -->
+  <div data-panel="activity" hidden>
+    <section>
+      <h2>Who changed what</h2>
+      <div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>On</th><th>Detail</th></tr></thead><tbody id="audit"></tbody></table></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const store = { get: () => { try { return localStorage.getItem("pp-token"); } catch { return null; } },
+                set: (t) => { try { localStorage.setItem("pp-token", t); } catch {} } };
+let token = store.get(), asking = false;
+const api = async (path, opts = {}) => {
+  const headers = { ...(opts.headers || {}), Authorization: `Bearer ${token || ""}` };
+  if (opts.json !== undefined) { headers["Content-Type"] = "application/json"; opts = { ...opts, body: JSON.stringify(opts.json) }; }
+  const r = await fetch(path, { ...opts, headers });
+  if (r.status === 401 && !asking) {
+    asking = true;
+    const given = prompt("PatchPilot API token:");
+    asking = false;
+    if (given) { token = given.trim(); store.set(token); return api(path, opts); }
+  }
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+};
+const say = (id, text, ok = true) => { const el = $(id); el.textContent = text; el.className = `msg ${ok ? "ok" : "err"}`; };
+const bytes = (n) => n == null ? "?" : n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`;
+const dur = (s) => s == null ? "?" : s >= 86400 ? `${Math.floor(s / 86400)}d ${Math.floor(s % 86400 / 3600)}h` : s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m` : `${Math.floor(s / 60)}m`;
+const chip = (cls, t) => `<span class="chip ${cls}">${esc(t)}</span>`;
+const bar = (used, total) => total ? `<div class="bar"><span style="width:${Math.min(100, 100 * used / total).toFixed(0)}%"></span></div>` : "";
+
+let S = null, mayAdmin = false, tab = "server", serverTimer = null;
+let chain = [], scope = null, policyDraft = null;
+
+// ------------------------------------------------------------------ tabs
+function show(name) {
+  tab = name;
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  document.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== name; });
+  try { history.replaceState(null, "", `#${name}`); } catch {}
+  clearInterval(serverTimer);
+  if (name === "server") { loadServer(); serverTimer = setInterval(loadServer, 5000); }
+  if (name === "activity") loadAudit();
+}
+$("#tabs").addEventListener("click", (e) => { if (e.target.dataset.tab) show(e.target.dataset.tab); });
+
+function lockForViewers() {
+  $("#readonly").hidden = mayAdmin;
+  document.querySelectorAll(".admin").forEach((el) => { el.disabled = !mayAdmin; });
+}
+
+// ---------------------------------------------------------------- server
+async function loadServer() {
+  let s;
+  try { s = await api("/api/system"); } catch (e) { $("#server").innerHTML = `<section class="msg err">${esc(e.message)}</section>`; return; }
+  const h = s.host, a = s.agent, o = s.ollama, mem = h.memory;
+  const items = Object.entries(a.items).map(([k, n]) => `${n} ${k.replace("_", " ")}`).join(", ") || "none yet";
+  const envs = s.environments.map((e) => `
+    <div style="margin-bottom:10px"><b>${esc(e.label)}</b> <span class="small">${esc(e.kind)} · ${esc(e.provider || "")}</span>
+      ${e.error ? `<div class="msg err">${esc(e.error)}</div>` : ""}
+      <div class="table-wrap"><table><tbody>${e.workloads.map((w) => `<tr class="${w.in_scope ? "" : "off"}"><td>${esc(w.name)}</td><td class="mono">${esc(w.image.split("/").pop())}</td><td>${w.in_scope ? chip("c-green", "in scope") : chip("c-grey", "left alone")}</td></tr>`).join("") || `<tr><td class="small">no workloads</td></tr>`}</tbody></table></div>
+    </div>`).join("");
+  $("#server").innerHTML = `
+    <section><h2>This server</h2><dl class="facts">
+      <dt>Host</dt><dd>${esc(h.hostname)} <span class="small">${esc(h.os)}</span></dd>
+      <dt>CPU</dt><dd>${h.cpus} cores${h.load ? ` · load ${h.load.map((x) => x.toFixed(2)).join(" / ")}` : ""}${h.load ? bar(h.load[0], h.cpus) : ""}</dd>
+      <dt>Memory</dt><dd>${mem ? (mem.available != null ? `${bytes(mem.total - mem.available)} used of ${bytes(mem.total)}${bar(mem.total - mem.available, mem.total)}` : `${bytes(mem.total)} total`) : "?"}</dd>
+      <dt>Disk</dt><dd>${bytes(h.disk.total - h.disk.free)} used of ${bytes(h.disk.total)}${bar(h.disk.total - h.disk.free, h.disk.total)}</dd>
+      ${h.uptime ? `<dt>Up</dt><dd>${dur(h.uptime)}</dd>` : ""}
+      <dt>Tools</dt><dd>${Object.entries(s.tools).map(([t, ok]) => chip(ok ? "c-green" : "c-grey", t)).join(" ")}</dd>
+    </dl></section>
+    <section><h2>PatchPilot</h2><dl class="facts">
+      <dt>Process</dt><dd>pid ${a.pid}, up ${dur(a.uptime)}${a.demo ? " · " + chip("c-amber", "demo controls on") : ""}</dd>
+      <dt>Working now</dt><dd>${a.rollout_in_progress ? chip("c-blue", "rollout in progress") : a.runs_in_progress ? chip("c-blue", `${a.runs_in_progress} run(s) in progress`) : chip("c-grey", "idle")}</dd>
+      <dt>Workers</dt><dd>${a.workers.map((w) => chip("c-green", w.replace("pp-", ""))).join(" ") || chip("c-amber", "none running")}</dd>
+      <dt>Decisions</dt><dd>${esc(items)}</dd>
+      <dt>Model</dt><dd class="mono">${esc(a.llm.providers)} <span class="small">(${esc(a.llm.mode)})</span></dd>
+      <dt>Sovereignty</dt><dd>${a.llm.sovereign ? chip("c-green", "nothing left this infrastructure") : chip("c-amber", `${a.llm.hosted_calls} hosted call(s), ${a.llm.redactions} redaction(s)`)} <span class="small">${a.llm.local_calls} local call(s)</span></dd>
+      <dt>Login</dt><dd>${esc(a.auth)}</dd>
+    </dl></section>
+    <section><h2>Model server (Ollama)</h2><dl class="facts">
+      <dt>Address</dt><dd class="mono">${esc(o.url)}</dd>
+      <dt>Status</dt><dd>${o.reachable ? chip("c-green", "reachable") : chip("c-red", "not reachable")} ${o.reachable ? `<span class="small">${o.installed} model(s) installed</span>` : ""}</dd>
+      ${o.reachable ? `<dt>In memory</dt><dd>${o.loaded.map((m) => `<div><span class="mono">${esc(m.name)}</span> <span class="small">${bytes(m.vram || m.size)}${m.vram ? " on GPU" : ""}</span></div>`).join("") || `<span class="small">none loaded (loads on the next question)</span>`}</dd>` : ""}
+    </dl></section>
+    <section><h2>Containers on this host</h2>${s.containers == null ? `<div class="empty">Docker is not available here.</div>` : s.containers.length ? `
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Image</th><th>Status</th></tr></thead><tbody>
+      ${s.containers.map((c) => `<tr><td>${esc(c.name)}</td><td class="mono">${esc(c.image)}</td><td class="small">${esc(c.status)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No containers running.</div>`}</section>
+    <section style="grid-column: 1 / -1"><h2>Fleet</h2>${envs || `<div class="empty">No environments in fleet.yaml.</div>`}</section>`;
+}
+
+// ----------------------------------------------------------------- model
+function renderChain() {
+  const avail = Object.fromEntries(S.llm.available.map((p) => [p.name, p]));
+  $("#chain").innerHTML = chain.map((c, i) => {
+    const p = avail[c.name] || { name: c.name };
+    return `<div class="prov">
+      <span class="n">${i + 1}</span>
+      <div><b>${esc(c.name)}</b><div>${p.hosted ? chip(S.policy.effective.allow_hosted_llm ? "c-amber" : "c-red", "hosted") : chip("c-green", "our infrastructure")}
+        ${p.key_set === false ? chip("c-red", "no API key") : ""}</div></div>
+      <div><input type="text" class="admin" data-model="${i}" value="${esc(c.model)}" list="models-${i}" aria-label="Model for ${esc(c.name)}">
+        <datalist id="models-${i}"></datalist><div class="small mono">${esc(p.endpoint || "")}</div></div>
+      <div class="btns">
+        <button class="admin" data-up="${i}" ${i === 0 ? "disabled" : ""} aria-label="Move up">↑</button>
+        <button class="admin" data-down="${i}" ${i === chain.length - 1 ? "disabled" : ""} aria-label="Move down">↓</button>
+        <button class="admin danger" data-remove="${i}" ${chain.length === 1 ? "disabled" : ""}>Remove</button>
+      </div></div>`;
+  }).join("");
+  const unused = S.llm.available.filter((p) => !chain.some((c) => c.name === p.name));
+  $("#add-provider").innerHTML = unused.map((p) => `<option value="${esc(p.name)}">${esc(p.name)}${p.hosted ? " (hosted)" : ""}</option>`).join("");
+  $("#add-provider").disabled = !mayAdmin || !unused.length;
+  $("#add-provider-btn").disabled = !mayAdmin || !unused.length;
+  chain.forEach((c, i) => api(`/api/settings/llm/models?provider=${encodeURIComponent(c.name)}`).then((r) => {
+    const dl = document.getElementById(`models-${i}`);
+    if (dl) dl.innerHTML = r.models.map((m) => `<option value="${esc(m)}">`).join("");
+  }).catch(() => {}));
+  lockForViewers();
+  if (!mayAdmin) document.querySelectorAll("#chain button").forEach((b) => { b.disabled = true; });
+}
+$("#chain").addEventListener("input", (e) => { if (e.target.dataset.model) chain[Number(e.target.dataset.model)].model = e.target.value; });
+$("#chain").addEventListener("click", (e) => {
+  const d = e.target.dataset;
+  if (d.up) { const i = Number(d.up); [chain[i - 1], chain[i]] = [chain[i], chain[i - 1]]; }
+  else if (d.down) { const i = Number(d.down); [chain[i + 1], chain[i]] = [chain[i], chain[i + 1]]; }
+  else if (d.remove) chain.splice(Number(d.remove), 1);
+  else return;
+  renderChain();
+});
+$("#add-provider-btn").addEventListener("click", () => {
+  const name = $("#add-provider").value;
+  const p = S.llm.available.find((x) => x.name === name);
+  if (p) { chain.push({ name, model: p.model || "" }); renderChain(); }
+});
+$("#save-llm").addEventListener("click", async () => {
+  try {
+    await api("/api/settings/llm", { method: "PUT", json: { providers: chain.map((c) => c.name), mode: $("#mode").value,
+      models: Object.fromEntries(chain.map((c) => [c.name, c.model])) } });
+    say("#llm-msg", "Saved. New questions use these models."); await load();
+  } catch (e) { say("#llm-msg", e.message, false); }
+});
+$("#reset-llm").addEventListener("click", async () => {
+  if (!confirm("Go back to the models in LLM_PROVIDER / patchpilot.yaml?")) return;
+  try { await api("/api/settings/llm", { method: "DELETE" }); say("#llm-msg", "Back to the config files."); await load(); }
+  catch (e) { say("#llm-msg", e.message, false); }
+});
+$("#test-llm").addEventListener("click", async () => {
+  $("#test-out").hidden = false; $("#test-rows").innerHTML = `<div class="small">Asking every model in the saved list…</div>`;
+  try {
+    const rows = await api("/api/settings/llm/test", { method: "POST" });
+    $("#test-rows").innerHTML = rows.map((r) => `<div>${r.ok ? chip("c-green", "answers") : chip("c-red", "no answer")} <b>${esc(r.name)}</b> <span class="mono">${esc(r.model)}</span>
+      <span class="small">${r.ok ? `${r.seconds}s` : esc(r.detail || "")}</span></div>`).join("");
+  } catch (e) { $("#test-rows").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+});
+
+// ----------------------------------------------------------- permissions
+const DECISION = { auto: "Do it automatically", needs_approval: "Ask a human first", block: "Never do it",
+                   queue: "Queue for the maintenance window", ignore: "Ignore the advisory" };
+const RULES = [
+  ["patch.clean", "Fix vetted clean", "The new version passed checksums, source match and the AI's diff review."],
+  ["patch.unreviewed", "Fix not fully reviewed", "The AI could not review every file it had to. Never automatic."],
+  ["patch.suspicious", "Fix looks suspicious", "The diff review found behaviour unrelated to the fix."],
+  ["patch.malicious", "Fix looks malicious", "Checksums or the review show tampering. Always blocked."],
+  ["mitigate", "Virtual patch on the gateway", "Block the exploit pattern in front of the service when no safe fix exists."],
+  ["not_reachable", "AI says the code is not reachable", "Internal workloads only; on internet-exposed ones this is never below a queue."],
+  ["act_now_when", "Act immediately on", null, { internet_exposed: "Internet-exposed services (queue the rest)", always: "Every service" }],
+  ["blocked_patch_fallback", "When a fix is blocked", null, { mitigate: "Virtual patch instead, if possible", none: "Nothing: escalate to a human" }],
+  ["allow_hosted_llm", "Hosted AI models", "May prompts (redacted) go to a model outside our own infrastructure?", { true: "Allowed, redacted and counted", false: "Never: our own models only" }],
+];
+const getP = (pol, key) => key.startsWith("patch.") ? pol.patch[key.slice(6)] : pol[key];
+const setP = (pol, key, v) => { if (key.startsWith("patch.")) pol.patch[key.slice(6)] = v; else pol[key] = v; };
+const allowed = (key) => key.startsWith("patch.") ? S.policy.allowed.patch[key.slice(6)] : S.policy.allowed[key];
+const changed = (key) => { const c = S.policy.changed || {}; return key.startsWith("patch.") ? (c.patch || {})[key.slice(6)] !== undefined : c[key] !== undefined; };
+
+function samePolicy(a, b) {
+  return Object.keys(b).every((k) => k === "patch" ? Object.keys(b.patch).every((v) => a.patch[v] === b.patch[v]) : a[k] === b[k]);
+}
+function renderPolicy() {
+  const eff = S.policy.effective;
+  $("#presets").innerHTML = Object.entries(S.policy.presets).map(([name, p]) => `
+    <div class="preset ${samePolicy(eff, p.policy) ? "on" : ""}"><b>${esc(p.label)}</b><span class="small">${esc(p.summary)}</span>
+      <div>${samePolicy(eff, p.policy) ? chip("c-blue", "current") : `<button class="admin" data-preset="${esc(name)}">Use this level</button>`}</div></div>`).join("");
+  $("#rules").innerHTML = RULES.map(([key, label, help, names]) => `
+    <div class="rule"><div><b>${esc(label)}</b>${changed(key) ? `<span class="changed">CHANGED</span>` : ""}${help ? `<div class="small">${esc(help)}</div>` : ""}</div>
+      <select class="admin" data-rule="${key}" ${allowed(key).length < 2 ? "disabled" : ""}>
+        ${allowed(key).map((v) => `<option value="${esc(String(v))}" ${String(getP(policyDraft, key)) === String(v) ? "selected" : ""}>${esc((names || DECISION)[String(v)] || v)}</option>`).join("")}
+      </select></div>`).join("");
+  lockForViewers();
+  document.querySelectorAll("#rules select").forEach((s) => { if (allowed(s.dataset.rule).length < 2) s.disabled = true; });
+}
+$("#rules").addEventListener("change", (e) => {
+  const key = e.target.dataset.rule; if (!key) return;
+  setP(policyDraft, key, key === "allow_hosted_llm" ? e.target.value === "true" : e.target.value);
+});
+$("#presets").addEventListener("click", async (e) => {
+  const name = e.target.dataset.preset; if (!name) return;
+  if (name === "autonomous" && !confirm("Let PatchPilot apply clean fixes and virtual patches on every service without asking?")) return;
+  try { await api("/api/settings/policy", { method: "PUT", json: { preset: name } }); say("#policy-msg", "Autonomy level changed."); await load(); }
+  catch (err) { say("#policy-msg", err.message, false); }
+});
+$("#save-policy").addEventListener("click", async () => {
+  try { await api("/api/settings/policy", { method: "PUT", json: policyDraft }); say("#policy-msg", "Saved. Applies to the next decision."); await load(); }
+  catch (e) { say("#policy-msg", e.message, false); }
+});
+$("#reset-policy").addEventListener("click", async () => {
+  if (!confirm("Drop the changes made here and use policy.yaml as it is?")) return;
+  try { await api("/api/settings/policy", { method: "DELETE" }); say("#policy-msg", "Back to policy.yaml."); await load(); }
+  catch (e) { say("#policy-msg", e.message, false); }
+});
+
+// ----------------------------------------------------------------- scope
+function renderScope() {
+  const sc = S.scope, ex = scope;
+  $("#scope-targets").innerHTML = sc.targets.map((t) => `<label><input type="checkbox" class="admin" data-target="${esc(t.name)}" ${ex.targets.includes(t.name) ? "" : "checked"}>
+    ${esc(t.label)} <span class="small">${t.workloads} service(s)${t.error ? " · unreachable" : ""}</span></label>`).join("") || `<span class="empty">No environments.</span>`;
+  $("#scope-workloads").innerHTML = sc.workloads.map((w) => {
+    const envOff = ex.targets.includes(w.target), on = !envOff && !ex.workloads.includes(w.id);
+    return `<tr class="${on ? "" : "off"}"><td><label><input type="checkbox" class="admin" data-workload="${esc(w.id)}" ${ex.workloads.includes(w.id) ? "" : "checked"} ${envOff ? "disabled" : ""}></label></td>
+      <td><b>${esc(w.name)}</b></td><td>${esc(w.target)}</td><td>${w.internet_exposed ? chip("c-red", "internet") : chip("c-grey", "internal")}</td>
+      <td>${w.packages == null ? `<span class="small">not scanned</span>` : w.packages}</td><td class="mono">${esc(w.image.split("/").pop())}</td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty">No services discovered.</td></tr>`;
+  $("#scope-ecos").innerHTML = sc.ecosystems.map((e) => `<label><input type="checkbox" class="admin" data-eco="${esc(e)}" ${ex.ecosystems.includes(e) ? "" : "checked"}> ${esc(e)}</label>`).join("");
+  $("#pkg-list").innerHTML = sc.packages.map((p) => `<option value="${esc(p)}">`).join("");
+  $("#scope-pkgs").innerHTML = ex.packages.map((p, i) => `<span class="chip c-grey mono">${esc(p)}<button class="admin" data-unpkg="${i}" aria-label="Remove ${esc(p)}">×</button></span>`).join("") || `<span class="small">None: every package is watched.</span>`;
+  lockForViewers();
+  if (!mayAdmin) document.querySelectorAll("#scope-workloads input").forEach((i) => { i.disabled = true; });
+}
+const toggle = (list, v, on) => { const i = list.indexOf(v); if (on && i >= 0) list.splice(i, 1); if (!on && i < 0) list.push(v); };
+$("[data-panel=scope]").addEventListener("change", (e) => {
+  const d = e.target.dataset;
+  if (d.target) toggle(scope.targets, d.target, e.target.checked);
+  else if (d.workload) toggle(scope.workloads, d.workload, e.target.checked);
+  else if (d.eco) toggle(scope.ecosystems, d.eco, e.target.checked);
+  else return;
+  renderScope();
+});
+$("[data-panel=scope]").addEventListener("click", (e) => {
+  if (e.target.dataset.unpkg) { scope.packages.splice(Number(e.target.dataset.unpkg), 1); renderScope(); }
+});
+$("#pkg-add").addEventListener("click", () => {
+  const v = $("#pkg-input").value.trim();
+  if (v && !scope.packages.includes(v)) scope.packages.push(v);
+  $("#pkg-input").value = ""; renderScope();
+});
+$("#scan").addEventListener("click", async () => {
+  $("#scan").disabled = true; $("#scan").textContent = "Scanning…";
+  try { await load(true); } finally { $("#scan").disabled = false; $("#scan").textContent = "Scan packages"; }
+});
+$("#save-scope").addEventListener("click", async () => {
+  try { await api("/api/settings/scope", { method: "PUT", json: scope }); say("#scope-msg", "Saved. Applies to the next advisory and probe."); await load(); }
+  catch (e) { say("#scope-msg", e.message, false); }
+});
+$("#reset-scope").addEventListener("click", async () => {
+  try { await api("/api/settings/scope", { method: "DELETE" }); say("#scope-msg", "PatchPilot works on everything again."); await load(); }
+  catch (e) { say("#scope-msg", e.message, false); }
+});
+
+// -------------------------------------------------------------- activity
+async function loadAudit() {
+  const rows = await api("/api/audit?limit=200").catch(() => []);
+  $("#audit").innerHTML = rows.map((r) => `<tr><td class="small">${new Date(r.ts * 1000).toLocaleString()}</td><td>${esc(r.actor)}</td>
+    <td>${esc(r.action)}</td><td>${esc(r.target || "")}</td><td class="mono small">${esc(r.detail || "")}</td></tr>`).join("")
+    || `<tr><td colspan="5" class="empty">Nothing recorded yet.</td></tr>`;
+}
+
+// ------------------------------------------------------------------ load
+async function load(scan = false) {
+  S = await api(`/api/settings${scan ? "?scan=true" : ""}`);
+  mayAdmin = S.me.may_admin;
+  $("#me").textContent = `${S.me.user}${mayAdmin ? "" : " · view only"}`;
+  chain = S.llm.chain.map((c) => ({ name: c.name, model: c.model }));
+  $("#mode").value = S.llm.mode;
+  const st = S.llm.status;
+  $("#llm-status").innerHTML = `${S.llm.changed ? chip("c-blue", "set here") : chip("c-grey", "from config files")} ${st.sovereign ? chip("c-green", "sovereign") : chip("c-amber", "hosted calls: " + st.hosted_calls)}`;
+  policyDraft = JSON.parse(JSON.stringify(S.policy.effective));
+  scope = JSON.parse(JSON.stringify(S.scope.excluded));
+  renderChain(); renderPolicy(); renderScope();
+}
+load().then(() => show(["server", "model", "permissions", "scope", "activity"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "server"))
+  .catch((e) => { $("main").insertAdjacentHTML("afterbegin", `<div class="msg err">${esc(e.message)}</div>`); });
+</script>
+</body>
+</html>

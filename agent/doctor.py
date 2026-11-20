@@ -13,7 +13,7 @@ import sys
 
 import requests
 
-from . import auth, config, feeds, notify, providers, settings
+from . import auth, config, feeds, notify, overrides, providers, settings
 
 OK, MISSING, OPTIONAL = "[ok]      ", "[missing] ", "[optional]"
 
@@ -36,8 +36,8 @@ class Report:
 
 
 def _llm(r: Report) -> None:
-    r.slot(f"llm: {config.LLM_PROVIDER} (mode {config.LLM_MODE})")
-    if config.LLM_MODE == "cache":
+    r.slot(f"llm: {','.join(overrides.llm_providers())} (mode {overrides.llm_mode()})")
+    if overrides.llm_mode() == "cache":
         r.line(True, "cache mode: only cached answers are used, no model is called")
     for p in providers.chain():
         if p.name == "ollama":

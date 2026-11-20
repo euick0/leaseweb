@@ -209,6 +209,11 @@ def claim_item(item_id: int, from_statuses: tuple[str, ...], status: str, **fiel
     return True
 
 
+def item_counts() -> dict[str, int]:
+    """Items per status, over every run."""
+    return {r["status"]: r["n"] for r in _query("SELECT status, COUNT(*) AS n FROM items GROUP BY status")}
+
+
 def get_item(item_id: int) -> Optional[dict]:
     rows = _query("SELECT * FROM items WHERE id = ?", (item_id,))
     return rows[0] if rows else None
